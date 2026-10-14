@@ -1,0 +1,30 @@
+{
+  "name": "business-partner",
+  "private": true,
+  "packageManager": "npm@11.9.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "dev:web": "npm run dev -w @bp/web",
+    "dev:mobile": "npm run dev -w @bp/mobile",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.9",
+    "@types/node": "^22.0.0",
+    "prettier": "^3.9.10",
+    "tsx": "^4.20.0",
+    "turbo": "^2.5.0",
+    "typescript": "~5.9.2"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

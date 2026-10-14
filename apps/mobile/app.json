@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Business Partner",
+    "slug": "business-partner",
+    "scheme": "businesspartner",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "com.businesspartner.app",
+      "supportsTablet": true
+    },
+    "android": { "package": "com.businesspartner.app" },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose photos for your business posts and messages."
+        }
+      ],
+      [
+        "expo-location",
+        { "locationWhenInUsePermission": "Find businesses near you." }
+      ]
+    ],
+    "splash": { "backgroundColor": "#f8f7f3" }
+  }
+}
