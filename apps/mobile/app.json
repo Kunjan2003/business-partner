@@ -10,7 +10,9 @@
       "bundleIdentifier": "com.businesspartner.app",
       "supportsTablet": true
     },
-    "android": { "package": "com.businesspartner.app" },
+    "android": {
+      "package": "com.businesspartner.app"
+    },
     "plugins": [
       [
         "expo-image-picker",
@@ -20,9 +22,16 @@
       ],
       [
         "expo-location",
-        { "locationWhenInUsePermission": "Find businesses near you." }
+        {
+          "locationWhenInUsePermission": "Find businesses near you."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#f8f7f3"
+        }
       ]
-    ],
-    "splash": { "backgroundColor": "#f8f7f3" }
+    ]
   }
 }

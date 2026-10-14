@@ -24,3 +24,9 @@ PGlite tests stub Supabase's auth/storage metadata and omit PostGIS geometry/sea
 ## Known product scope
 
 See README's feature matrix and the phase plan. Stories/reels/video processing, FCM push delivery, views/profile visits, native catalog administration, richer maps, full cross-platform moderation and production operations remain planned. This repository is an MVP implementation, not a completed production launch of every requested capability.
+
+## Expo SDK 57 upgrade
+
+Upgraded mobile to Expo 57.0.29, React Native 0.86.3 and the SDK's matching native modules. Both workspaces use React 19.2.3. The minimum documented Node version is 22.13. The legacy splash configuration was migrated to the `expo-splash-screen` plugin.
+
+Upgrade validation: Expo Doctor 21/21 checks passed, workspace TypeScript passed, all 20 tests passed, and the web production build passed after clearing its stale generated cache. Android export passed with SDK 57. A signed native build and physical-device testing still require the owner's build credentials/device. Existing development clients must be rebuilt for the new SDK.

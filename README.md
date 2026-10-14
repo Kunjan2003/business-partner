@@ -29,7 +29,7 @@ This is an implemented first release of **auth, business profiles, photo/text/of
 
 ## Quick start
 
-Requires Node 22+, npm, and either a hosted Supabase project or the Supabase CLI with Docker for local development.
+Requires Node 22.13+, npm, and either a hosted Supabase project or the Supabase CLI with Docker for local development.
 
 ```bash
 npm ci
@@ -69,7 +69,7 @@ npm run dev:mobile
 
 For a physical phone with a local backend, use your computer's reachable LAN IP instead of `127.0.0.1` and allow the Supabase ports through your local firewall. For a hosted project, use the HTTPS project URL.
 
-Expo SDK 55 is paired with its bundled React Native/Expo module versions. The lockfile records the tested dependency graph. Email/password and core screens can be exercised with a compatible Expo client. Google sign-in needs a development/production build with the `businesspartner` URL scheme; Expo Go does not provide this production scheme.
+Expo SDK 57.0.29 is paired with React Native 0.86.3, React 19.2.3 and its bundled Expo module versions. The lockfile records the tested dependency graph. Email/password and core screens can be exercised with a compatible Expo client. Google sign-in needs a development/production build with the `businesspartner` URL scheme; Expo Go does not provide this production scheme. After upgrading from SDK 55, rebuild any existing development client; clear Metro with `npx expo start --clear` in `apps/mobile`.
 
 ### 4. Configure auth providers
 
