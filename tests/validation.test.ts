@@ -72,7 +72,14 @@ test("product edits never submit immutable business ownership", async () => {
     from: () => ({
       update: (value: Record<string, unknown>) => {
         update = value;
-        return { eq: () => Promise.resolve({ data: null, error: null }) };
+        return {
+          eq: () => ({
+            select: () => ({
+              single: () =>
+                Promise.resolve({ data: { id: "product" }, error: null }),
+            }),
+          }),
+        };
       },
     }),
   };

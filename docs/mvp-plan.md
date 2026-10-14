@@ -34,7 +34,7 @@
 
 ## Phase 4 — complete cross-platform parity and operations
 
-1. Native product CRUD, saved-feed navigation for owners, review editor and richer navigation routes.
+1. Implemented in the mobile refresh: native product CRUD, saved posts for owners, review editor and dedicated navigation screens.
 2. Draggable map pin picker and native interactive map; geocoding and location accuracy UX.
 3. Post edit/delete UI, unblock/report management, report subject preview and audited moderation reversals.
 4. Analytics event ingestion with anti-spam deduplication, daily rollups, views/profile visits and conversion funnels.

@@ -14,7 +14,8 @@
     "dev:web": "npm run dev -w @bp/web",
     "dev:mobile": "npm run dev -w @bp/mobile",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:mobile": "npm run test -w @bp/mobile"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.9",

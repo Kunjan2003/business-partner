@@ -6,16 +6,16 @@ Send the public `apikey` and, for protected operations, `Authorization: Bearer <
 
 ## Auth and account
 
-| Shared method              | Endpoint                                | Behavior                                       |
-| -------------------------- | --------------------------------------- | ---------------------------------------------- |
-| signUp                     | POST /auth/v1/signup                    | Email/password + name and customer/owner role  |
-| signIn                     | POST /auth/v1/token?grant_type=password | Email/password session                         |
-| phoneOtp                   | POST /auth/v1/otp                       | Request SMS OTP; provider required             |
-| verifyOtp                  | POST /auth/v1/verify                    | Verify SMS code                                |
-| SDK signInWithOAuth        | GET /auth/v1/authorize?provider=google  | PKCE OAuth; web/mobile redirect flows          |
-| SDK exchangeCodeForSession | POST /auth/v1/token?grant_type=pkce     | Exchange callback code                         |
-| signOut                    | POST /auth/v1/logout                    | Revoke session                                 |
-| profile, updateProfile     | GET/PATCH /rest/v1/profiles             | Caller profile; name/role only via API wrapper |
+| Shared method              | Endpoint                                | Behavior                                         |
+| -------------------------- | --------------------------------------- | ------------------------------------------------ |
+| signUp                     | POST /auth/v1/signup                    | Email/password + name and customer/owner role    |
+| signIn                     | POST /auth/v1/token?grant_type=password | Email/password session                           |
+| phoneOtp                   | POST /auth/v1/otp                       | Request SMS OTP; provider required               |
+| verifyOtp                  | POST /auth/v1/verify                    | Verify SMS code                                  |
+| SDK signInWithOAuth        | GET /auth/v1/authorize?provider=google  | PKCE OAuth; web/mobile redirect flows            |
+| SDK exchangeCodeForSession | POST /auth/v1/token?grant_type=pkce     | Exchange callback code                           |
+| signOut                    | POST /auth/v1/logout                    | Revoke session                                   |
+| profile, updateProfile     | GET/PATCH /rest/v1/profiles             | Caller profile; name/role/avatar via API wrapper |
 
 ## Commerce and social
 
@@ -38,18 +38,18 @@ Send the public `apikey` and, for protected operations, `Authorization: Bearer <
 
 ## Chat, notifications and media
 
-| Method           | Endpoint                                             | Behavior                                          |
-| ---------------- | ---------------------------------------------------- | ------------------------------------------------- |
-| startChat        | POST /rest/v1/rpc/start_chat                         | target_business; idempotent per customer/business |
-| chats            | GET /rest/v1/chats + POST /rest/v1/rpc/unread_counts | Participant-only inbox, unread counts             |
-| messages         | GET /rest/v1/messages                                | Last 50 or older timestamp page                   |
-| send             | POST /rest/v1/messages                               | body and/or image_path; sender bound to JWT       |
-| markRead         | POST /rest/v1/rpc/mark_chat_read                     | Server timestamp; participant check               |
-| subscribeChat    | /realtime/v1/websocket                               | INSERT messages; chat filter + RLS                |
-| notifications    | GET /rest/v1/notifications                           | Recipient only, 100 cap                           |
-| readNotification | PATCH /rest/v1/notifications                         | read_at only                                      |
-| uploadImage      | POST /storage/v1/object/{bucket}/{path}              | JPEG/PNG/WebP, 6 MB; generated filename           |
-| chatImage        | POST /storage/v1/object/sign/chat-images/{path}      | Participant-only five-minute URL                  |
+| Method           | Endpoint                                             | Behavior                                                           |
+| ---------------- | ---------------------------------------------------- | ------------------------------------------------------------------ |
+| startChat        | POST /rest/v1/rpc/start_chat                         | target_business; idempotent per customer/business                  |
+| chats            | GET /rest/v1/chats + POST /rest/v1/rpc/unread_counts | Participant-only inbox, unread counts                              |
+| messages         | GET /rest/v1/messages                                | Last 50; mobile compound timestamp/UUID cursor, web timestamp page |
+| send             | POST /rest/v1/messages                               | body and/or image_path; sender bound to JWT                        |
+| markRead         | POST /rest/v1/rpc/mark_chat_read                     | Server timestamp; participant check                                |
+| subscribeChat    | /realtime/v1/websocket                               | INSERT messages; chat filter + RLS                                 |
+| notifications    | GET /rest/v1/notifications                           | Recipient only, 100 cap                                            |
+| readNotification | PATCH /rest/v1/notifications                         | read_at only                                                       |
+| uploadImage      | POST /storage/v1/object/{bucket}/{path}              | JPEG/PNG/WebP, 6 MB; generated filename                            |
+| chatImage        | POST /storage/v1/object/sign/chat-images/{path}      | Participant-only five-minute URL                                   |
 
 Public image paths: `business-media/{userId}/{uuid}.{ext}`.
 Private image paths: `chat-images/{chatId}/{userId}/{uuid}.{ext}`. A message may only attach an existing object under its own sender/chat path. Other participants may read it but cannot forge it as their own attachment.

@@ -73,7 +73,8 @@ export function createApi(
       return data;
     },
     async signIn(email: string, password: string) {
-      credentialsSchema.parse({ email, password });
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !password)
+        throw new Error("Enter your email and password");
       return result(db.auth.signInWithPassword({ email, password }));
     },
     async signOut() {
@@ -97,15 +98,64 @@ export function createApi(
           .single(),
       );
     },
-    async updateProfile(display_name: string, role: "owner" | "customer") {
+    async updateProfile(
+      display_name: string,
+      role: "owner" | "customer",
+      avatar_url?: string,
+    ) {
       roleSchema.parse(role);
       if (!display_name.trim() || display_name.length > 100)
         throw new Error("Name must be 1–100 characters");
       return result(
         db
           .from("profiles")
-          .update({ display_name: display_name.trim(), role })
-          .eq("id", await uid()),
+          .update({
+            display_name: display_name.trim(),
+            role,
+            ...(avatar_url !== undefined ? { avatar_url } : {}),
+          })
+          .eq("id", await uid())
+          .select("id")
+          .single(),
+      );
+    },
+    ensureProfile() {
+      return result<Profile>(db.rpc("ensure_profile").single());
+    },
+    businessStats(id: string) {
+      return result<{
+        posts: number;
+        followers: number;
+        products: number;
+        rating: number;
+      }>(db.rpc("business_stats", { target_business: id }));
+    },
+    businessPosts(id: string, offset = 0) {
+      return result<Post[]>(
+        db
+          .from("posts")
+          .select("*,businesses!inner(*),likes(user_id),comments(id)")
+          .eq("business_id", id)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
+          .range(offset, offset + 11),
+      );
+    },
+    followedBusinesses: async () =>
+      result<{ businesses: Business }[]>(
+        db
+          .from("follows")
+          .select("businesses!inner(*)")
+          .eq("user_id", await uid())
+          .limit(30),
+      ),
+    post(id: string) {
+      return result<Post>(
+        db
+          .from("posts")
+          .select("*,businesses!inner(*),likes(user_id),comments(id)")
+          .eq("id", id)
+          .single(),
       );
     },
     business(id: string) {
@@ -171,7 +221,9 @@ export function createApi(
       return result(db.from("posts").insert(postSchema.parse(input)));
     },
     deletePost(id: string) {
-      return result(db.from("posts").delete().eq("id", id));
+      return result(
+        db.from("posts").delete().eq("id", id).select("id").single(),
+      );
     },
     products(id: string) {
       return result<Product[]>(
@@ -188,12 +240,19 @@ export function createApi(
       const { business_id, ...editable } = value;
       return result(
         id
-          ? db.from("products").update(editable).eq("id", id)
-          : db.from("products").insert(value),
+          ? db
+              .from("products")
+              .update(editable)
+              .eq("id", id)
+              .select("id")
+              .single()
+          : db.from("products").insert(value).select("id").single(),
       );
     },
     deleteProduct(id: string) {
-      return result(db.from("products").delete().eq("id", id));
+      return result(
+        db.from("products").delete().eq("id", id).select("id").single(),
+      );
     },
     async search(input: SearchInput, offset = 0) {
       const x = searchSchema.parse(input);
@@ -255,12 +314,12 @@ export function createApi(
           id: string;
           body: string;
           created_at: string;
-          profiles: { display_name: string };
+          profiles: { display_name: string; avatar_url?: string | null };
         }[]
       >(
         db
           .from("comments")
-          .select("id,body,created_at,profiles(display_name)")
+          .select("id,body,created_at,profiles(display_name,avatar_url)")
           .eq("post_id", post)
           .order("created_at")
           .limit(100),
@@ -281,7 +340,7 @@ export function createApi(
           id: string;
           rating: number;
           body: string;
-          profiles: { display_name: string };
+          profiles: { display_name: string; avatar_url?: string | null };
         }[]
       >(
         db
@@ -317,7 +376,9 @@ export function createApi(
       const chats = await result<Chat[]>(
         db
           .from("chats")
-          .select("*,businesses(*)")
+          .select(
+            "*,businesses(*,owner:profiles!businesses_owner_id_fkey(display_name,avatar_url)),customer:profiles!chats_customer_id_fkey(display_name,avatar_url)",
+          )
           .order("created_at", { ascending: false })
           .limit(100),
       );
@@ -326,17 +387,31 @@ export function createApi(
       );
       return chats.map((c) => ({
         ...c,
-        unread: counts.find((x) => x.chat_id === c.id)?.unread ?? 0,
+        unread: Number(counts.find((x) => x.chat_id === c.id)?.unread ?? 0),
       }));
     },
-    messages(chat: string, before?: string) {
+    messages(
+      chat: string,
+      before?: string | { created_at: string; id: string },
+    ) {
       let q = db
         .from("messages")
         .select("*")
         .eq("chat_id", chat)
         .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
         .limit(50);
-      if (before) q = q.lt("created_at", before);
+      if (typeof before === "string") q = q.lt("created_at", before);
+      else if (before) {
+        if (
+          !/^\d{4}-\d{2}-\d{2}T[\d:.+Z-]+$/.test(before.created_at) ||
+          !/^[a-f0-9-]{36}$/i.test(before.id)
+        )
+          throw new Error("Invalid message cursor");
+        q = q.or(
+          `created_at.lt.${before.created_at},and(created_at.eq.${before.created_at},id.lt.${before.id})`,
+        );
+      }
       return result<Message[]>(q).then((rows) => rows.reverse());
     },
     async send(input: unknown) {
@@ -389,6 +464,7 @@ export function createApi(
       if (!["image/jpeg", "image/png", "image/webp"].includes(mime))
         throw new Error("Choose a JPEG, PNG or WebP image");
       const size = bytes instanceof ArrayBuffer ? bytes.byteLength : bytes.size;
+      if (!size) throw new Error("This image is empty. Choose another photo.");
       if (size > 6 * 1024 * 1024) throw new Error("Images must be under 6 MB");
       const user = await uid();
       const ext = mime.split("/")[1];

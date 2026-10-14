@@ -36,6 +36,12 @@ test("database enforces business ownership, chat privacy, blocks and admin bound
     .replace(/create function public.search_market\([\s\S]+?\$\$;\n/, "")
     .replace(/grant execute on function public.search_market[^\n]+\n/, "");
   await db.exec(sql);
+  await db.exec(
+    readFileSync(
+      "supabase/migrations/202610140002_mobile_integration.sql",
+      "utf8",
+    ),
+  );
   const owner = "11111111-1111-4111-8111-111111111111",
     customer = "22222222-2222-4222-8222-222222222222",
     stranger = "33333333-3333-4333-8333-333333333333";
@@ -70,6 +76,40 @@ test("database enforces business ownership, chat privacy, blocks and admin bound
       /permission denied/,
     );
   });
+  await t.test(
+    "profile repair is self-only and cannot assign admin",
+    async () => {
+      await as(stranger);
+      await db.exec("reset role");
+      await db.query("delete from profiles where id=$1", [stranger]);
+      await as(stranger);
+      const p = (
+        await db.query<{ role: string }>("select (ensure_profile()).role")
+      ).rows[0];
+      assert.equal(p.role, "customer");
+      assert.equal(
+        (await db.query<{ v: boolean }>("select is_admin() v")).rows[0].v,
+        false,
+      );
+    },
+  );
+  await t.test(
+    "Google full_name metadata maps to a usable public profile",
+    async () => {
+      await db.exec("reset role");
+      await db.query(
+        "insert into auth.users(id,raw_user_meta_data) values('44444444-4444-4444-8444-444444444444','{\"full_name\":\"Google Member\"}')",
+      );
+      assert.equal(
+        (
+          await db.query<{ display_name: string }>(
+            "select display_name from profiles where id='44444444-4444-4444-8444-444444444444'",
+          )
+        ).rows[0].display_name,
+        "Google Member",
+      );
+    },
+  );
   await as(owner);
   const business = (
     await db.query<{ id: string }>(

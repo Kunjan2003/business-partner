@@ -70,14 +70,14 @@ The migration is the authoritative schema. UUID foreign keys cascade related dat
 
 ## Performance choices and limits
 
-- Twelve-item feeds/search pages; 50-message pages; client query cache, 30-second stale time.
+- Twelve-item feeds/search pages; 50-message pages; client query cache, 30-second stale time. Mobile lists are virtualized FlatLists with pull-to-refresh.
 - Deterministic feed order (`created_at`, `id`); offset pagination can shift when new posts arrive. Replace with compound keyset cursors for high-volume feeds.
-- Chat historical pagination uses timestamp cursors. A future `(created_at,id)` cursor avoids ties under batch-import/high-throughput loads.
+- Mobile chat uses compound `(created_at,id)` cursors to avoid skipping tied timestamps. The web client retains its original timestamp-only cursor.
 - GiST location, GIN full-text/trigram, and relationship/timestamp indexes.
 - Web uploads resize to 1600px and WebP before upload; both clients restrict formats and size. Mobile selects compressed images. Public images load lazily on web.
 - Feeds currently embed likes/comment IDs to display counts; replace with aggregate counters for large posts.
 - Catalog, reviews, inbox and notifications have 100-row caps; add dedicated pagination as usage grows.
-- MVP screens remain in a single module per client for navigable first-release delivery. Split into route/features modules before expanding stories/video.
+- Mobile screens, session handling, navigation and reusable UI are separated into `apps/mobile/src`. The web MVP screens remain in one module and can be split before expanding video/stories.
 
 ## Planned service adapters
 

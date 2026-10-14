@@ -56,8 +56,11 @@ export type Chat = {
   customer_id: string;
   business_id: string;
   created_at: string;
-  businesses: Business;
+  businesses: Business & {
+    owner?: { display_name: string; avatar_url: string | null };
+  };
   unread?: number;
+  customer?: { display_name: string; avatar_url: string | null };
 };
 export type Message = {
   id: string;

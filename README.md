@@ -13,19 +13,25 @@ This is an implemented first release of **auth, business profiles, photo/text/of
 | Business profile, logo upload, address, hours, map coordinates       | Yes                              | Yes; use current location for pin                    |
 | Discovery / following feed, photo/text/offer/product-highlight posts | Yes                              | Yes                                                  |
 | Product catalog browsing                                             | Yes                              | Yes                                                  |
-| Product create, edit, availability, deletion                         | Yes                              | Manage through web for now                           |
+| Product create, edit, availability, deletion                         | Yes                              | Yes                                                  |
 | Full-text + trigram search, category/price/rating/nearby filters     | Yes                              | Yes                                                  |
 | Distance + Google Maps directions                                    | Yes                              | Yes                                                  |
 | Embedded Google map                                                  | Optional browser API key         | Opens Google Maps                                    |
-| Follow, like, comments, saved posts, share                           | Yes                              | Yes; owner saved-feed navigation planned             |
-| Reviews                                                              | Read/write                       | Rating filter; review editor planned                 |
+| Follow, like, comments, saved posts, share                           | Yes                              | Yes; saved posts for both roles                      |
+| Reviews                                                              | Read/write                       | Read/write                                           |
 | Real-time chat, image messages, unread counts, older messages        | Yes                              | Yes                                                  |
-| In-app activity notifications                                        | Yes                              | Account screen                                       |
-| Business totals: posts, likes, followers, chat inquiries             | Yes                              | Web dashboard                                        |
+| In-app activity notifications                                        | Yes                              | Activity screen                                      |
+| Business totals: posts, likes, followers, chat inquiries             | Yes                              | Yes                                                  |
 | Report content, block owner, admin hide/resolve                      | Yes                              | Block owner; full moderation through web             |
 | Reels, 24-hour stories, transcoded video                             | Planned                          | Planned                                              |
 | FCM push, offers-to-followers delivery                               | Planned                          | Planned                                              |
 | Views/profile-visit event analytics                                  | Planned                          | Planned                                              |
+
+## Mobile refresh and existing backend upgrade
+
+The mobile app now uses an Instagram-style photo feed, five-tab navigation, separate comments/messages screens, a profile grid, native catalog editing, reviews, saved posts, account photos and a business dashboard.
+
+**Existing Supabase projects:** apply `supabase/migrations/202610140002_mobile_integration.sql` once (or `supabase db push`) before using the refreshed app. It adds safe missing-profile repair, profile statistics and the message cursor index. Do not reapply the initial migration or reset your hosted database. See [mobile setup and checks](docs/mobile-setup.md).
 
 ## Quick start
 
@@ -47,7 +53,7 @@ npx supabase status
 
 `db reset` deletes your **local** database and reapplies migrations. Do not use it against production. Local confirmation emails are available through the mail viewer printed by `supabase status`. Email confirmation is disabled only in the checked-in local config.
 
-For a new hosted Supabase project, apply `supabase/migrations/202610140001_initial.sql` once in the SQL editor, or use `supabase link` followed by `supabase db push`. Do not paste server secrets into frontend environment files.
+For a new hosted Supabase project, apply both SQL files in `supabase/migrations` in filename order, once each, in the SQL editor, or use `supabase link` followed by `supabase db push`. Do not paste server secrets into frontend environment files.
 
 ### 2. Run web
 
@@ -103,6 +109,7 @@ Never derive admin access from email addresses or editable user metadata.
 ```bash
 npm run typecheck          # all three workspaces
 npm test                   # validation + PostgreSQL WASM relational/RLS tests
+npm run test:mobile        # native UI and photo upload regression tests
 npm run build              # web production build
 npm run export -w @bp/mobile # Android JS/Hermes bundle (not an APK)
 npx supabase test db        # real PostGIS/migration tests, requires local Supabase
