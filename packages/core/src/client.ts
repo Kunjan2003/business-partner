@@ -302,6 +302,39 @@ export function createApi(
       }
       return result<Post[]>(q);
     },
+    // Registration is restricted by push_devices RLS to the signed-in user.
+    async registerPushToken(expo_token: string, platform: "android" | "ios") {
+      if (!/^Expo(nent)?PushToken\\[[A-Za-z0-9_-]+\\]$/.test(expo_token))
+        throw new Error("Invalid Expo push token");
+      return result(db.from("push_devices").upsert({
+        expo_token, platform, user_id: await uid(), updated_at: new Date().toISOString(),
+      }, { onConflict: "expo_token" }));
+    },
+    async removePushToken(expo_token: string) {
+      return result(db.from("push_devices").delete().eq("expo_token",expo_token).eq("user_id",await uid()));
+    },
+    async startVideoUpload(business_id: string): Promise<{uid:string;uploadURL:string}> {
+      if (!/^[a-f0-9-]{36}$/i.test(business_id)) throw new Error("Invalid business");
+      const {data,error} = await db.functions.invoke("stream-upload",{body:{business_id}});
+      if(error) throw error;
+      if(!data || typeof data.uid !== "string" || typeof data.uploadURL !== "string"
+        || !/^https:\/\//.test(data.uploadURL)) throw new Error("Invalid video upload response");
+      return {uid:data.uid,uploadURL:data.uploadURL};
+    },
+    async uploadVideo(business_id:string, file: Blob | {uri:string;name:string;type:string}) {
+      const upload=await this.startVideoUpload(business_id);
+      const form=new FormData();
+      form.append("file",file as Blob);
+      const response=await fetch(upload.uploadURL,{method:"POST",body:form});
+      if(!response.ok) throw new Error("Video upload failed. Please try again.");
+      return upload.uid;
+    },
+    async videoStatus(uid:string):Promise<"ready"|"processing"|"error"> {
+      if(!/^[a-f0-9]{32}$/.test(uid))throw new Error("Invalid video");
+      const {data,error}=await db.functions.invoke("stream-status",{body:{uid}});
+      if(error)throw error;
+      return data?.state === "ready" ? "ready" : data?.state === "error" ? "error" : "processing";
+    },
     async createPost(input: unknown) {
       return result(db.from("posts").insert(postSchema.parse(input)));
     },
