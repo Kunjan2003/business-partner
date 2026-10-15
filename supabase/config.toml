@@ -23,3 +23,10 @@ enable_confirmations = true
 [storage]
 enabled = true
 file_size_limit = "6MiB"
+
+[functions.push-worker]
+verify_jwt = false
+[functions.stream-upload]
+verify_jwt = true
+[functions.stream-status]
+verify_jwt = true
