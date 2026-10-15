@@ -1,4 +1,12 @@
+import * as Sentry from "@sentry/react-native";
 import React, { useEffect, useState } from "react";
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || undefined,
+  enabled: !!process.env.EXPO_PUBLIC_SENTRY_DSN,
+  tracesSampleRate: 0.05,
+  sendDefaultPii: false,
+});
+
 import {
   View,
   Text,
