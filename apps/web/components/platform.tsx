@@ -34,6 +34,7 @@ import {
   type Message,
 } from "@bp/core";
 import Provider, { useApp } from "./provider";
+import AuthGate from "./auth-gate";
 type View =
   | "feed"
   | "search"
@@ -89,7 +90,7 @@ function Submit({ busy, children }: { busy: boolean; children: ReactNode }) {
 export default function Platform() {
   return (
     <Provider>
-      <Shell />
+      <AuthGate><Shell /></AuthGate>
     </Provider>
   );
 }
