@@ -24,6 +24,7 @@ import {
 } from "./src/ui";
 import type { Tab, Route, Navigate } from "./src/navigation";
 import Auth from "./src/screens/auth";
+import {enablePush,logOutWithPush} from "./src/push";
 import Onboarding from "./src/screens/onboarding";
 import { Feed, PostScreen } from "./src/screens/feed";
 import Explore from "./src/screens/explore";
@@ -104,7 +105,7 @@ function Root() {
           <Button
             title="Log out"
             outline
-            onPress={() => void run(() => api.signOut(), [])}
+            onPress={() => void run(() => logOutWithPush(api), [])}
           />
         )}
       </View>
@@ -127,6 +128,8 @@ const titles: Record<Route["name"], string> = {
 };
 function Shell() {
   const { api, user } = useApp();
+  useEffect(()=>{ if(user) void enablePush(api,user.id,false).catch(()=>{}); },[api,user?.id]);
+
   const [tab, setTab] = useState<Tab>("home"),
     [stack, setStack] = useState<Route[]>([]);
   const route = stack.at(-1);
