@@ -1,3 +1,6 @@
+jest.mock("@react-native-async-storage/async-storage", () =>
+  require("@react-native-async-storage/async-storage/jest/async-storage-mock")
+);
 // Native-only integrations are mocked for the Jest React Native renderer.
 // Production builds use the actual Expo, Sentry and video modules.
 jest.mock("@sentry/react-native", () => ({
