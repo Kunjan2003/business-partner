@@ -110,7 +110,7 @@ function Root() {
       </View>
     );
   if (!user) return <Auth />;
-  if (!user.onboarding_completed) return <Onboarding />;
+  if (user.onboarding_completed === false) return <Onboarding />;
   return <Shell key={user.id} />;
 }
 const titles: Record<Route["name"], string> = {
