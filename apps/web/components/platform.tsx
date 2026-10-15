@@ -572,6 +572,13 @@ function PostCard({
           {post.kind === "offer" ? "Local offer" : post.businesses.category}
         </span>
       </div>
+      {!!post.video_uid && <div className="post-video">
+        <iframe title={`Video from ${post.businesses.name}`}
+          loading="lazy" allowFullScreen
+          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+          src={`https://iframe.videodelivery.net/${post.video_uid}`}/>
+        <small>New videos may take a moment to finish processing.</small>
+      </div>}
       {post.image_url && (
         <img
           className="post-image"
@@ -1207,6 +1214,8 @@ function BusinessForm({ business }: { business?: Business }) {
 function PostForm({ business }: { business: Business }) {
   const { api, run } = useApp();
   const [image, setImage] = useState(""),
+    [video, setVideo] = useState<File | null>(null),
+    [videoError, setVideoError] = useState(""),
     [busy, setBusy] = useState(false),
     [version, setVersion] = useState(0);
   return (
@@ -1220,17 +1229,24 @@ function PostForm({ business }: { business: Business }) {
         setBusy(true);
         if (
           await run(
-            () =>
-              api.createPost({
-                business_id: business.id,
-                caption: d.get("caption"),
-                kind: d.get("kind"),
-                image_url: image,
-              }),
+            async () => {
+              if (video && (video.size>200*1024*1024 || !video.type.startsWith("video/"))) {
+                throw new Error("Choose a supported video under 200 MB.");
+              }
+              const video_uid=video ? await api.uploadVideo(business.id,video):undefined;
+              await api.createPost({
+                business_id:business.id,
+                caption:d.get("caption"),
+                kind:video_uid ? "video" : d.get("kind"),
+                image_url:video_uid ? "" : image,
+                video_uid,
+              });
+            },
             "Post published",
           )
         ) {
           setImage("");
+          setVideo(null);
           setVersion(version + 1);
         }
         setBusy(false);
@@ -1253,7 +1269,23 @@ function PostForm({ business }: { business: Business }) {
           <option value="product">Product highlight</option>
         </select>
       </label>
-      <ImageField onChange={setImage} />
+      <ImageField onChange={value => {setImage(value); if(value) setVideo(null);}} />
+      <label>
+        Or upload a short video / Reel (up to 90 seconds, 200 MB)
+        <input type="file" accept="video/mp4,video/quicktime,video/webm"
+          onChange={e => {
+            const picked=e.target.files?.[0]??null;
+            if(picked && picked.size>200*1024*1024){
+              setVideoError("Choose a video smaller than 200 MB.");
+              setVideo(null);return;
+            }
+            setVideoError("");
+            setVideo(picked);
+            if(picked) setImage("");
+          }}/>
+      </label>
+      {!!video && <small>Video selected: {video.name}. Upload starts when you publish.</small>}
+      {!!videoError && <p role="alert" className="error">{videoError}</p>}
       <Submit busy={busy}>Publish post</Submit>
     </form>
   );
