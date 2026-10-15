@@ -304,7 +304,7 @@ export function createApi(
     },
     // Registration is restricted by push_devices RLS to the signed-in user.
     async registerPushToken(expo_token: string, platform: "android" | "ios") {
-      if (!/^Expo(nent)?PushToken\\[[A-Za-z0-9_-]+\\]$/.test(expo_token))
+      if (!/^Expo(nent)?PushToken\[[A-Za-z0-9_-]+\]$/.test(expo_token))
         throw new Error("Invalid Expo push token");
       return result(db.from("push_devices").upsert({
         expo_token, platform, user_id: await uid(), updated_at: new Date().toISOString(),

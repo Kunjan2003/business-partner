@@ -4,7 +4,7 @@ create extension if not exists pgmq;
 select pgmq.create('activity_push');
 
 create table public.push_devices (
-  expo_token text primary key check (expo_token ~ '^ExponentPushToken\\[[A-Za-z0-9_-]+\\]$|^ExpoPushToken\\[[A-Za-z0-9_-]+\\]$'),
+  expo_token text primary key check (expo_token like 'ExpoPushToken[%]' or expo_token like 'ExponentPushToken[%]'),
   user_id uuid not null references auth.users(id) on delete cascade,
   platform text not null check (platform in ('ios','android')),
   created_at timestamptz not null default now(),
