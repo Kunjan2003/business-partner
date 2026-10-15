@@ -1,3 +1,4 @@
+import {logOutWithPush} from "../push";
 import React, { useState } from "react";
 import {
   View,
@@ -179,7 +180,7 @@ export default function Onboarding() {
           onPress={() => void submit()}
         />
         <Pressable
-          onPress={() => void run(() => api.signOut(), ["profile"])}
+          onPress={() => void run(() => logOutWithPush(api), ["profile"])}
           style={styles.signOut}
         >
           <Text style={styles.signOutText}>Sign out</Text>
