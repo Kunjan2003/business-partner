@@ -24,6 +24,7 @@ import {
 } from "./src/ui";
 import type { Tab, Route, Navigate } from "./src/navigation";
 import Auth from "./src/screens/auth";
+import Onboarding from "./src/screens/onboarding";
 import { Feed, PostScreen } from "./src/screens/feed";
 import Explore from "./src/screens/explore";
 import Create from "./src/screens/create";
@@ -109,6 +110,7 @@ function Root() {
       </View>
     );
   if (!user) return <Auth />;
+  if (!user.onboarding_completed) return <Onboarding />;
   return <Shell key={user.id} />;
 }
 const titles: Record<Route["name"], string> = {
