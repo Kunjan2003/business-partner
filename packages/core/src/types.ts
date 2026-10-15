@@ -3,6 +3,9 @@ export type Profile = {
   display_name: string;
   role: "customer" | "owner";
   avatar_url: string | null;
+  username?: string | null;
+  bio?: string;
+  onboarding_completed?: boolean;
 };
 export type Business = {
   id: string;
