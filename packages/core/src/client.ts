@@ -76,42 +76,86 @@ export function createApi(
     async register(email: string, password: string, redirectTo: string) {
       credentialsSchema.parse({ email: email.trim(), password });
       const { data, error } = await db.auth.signUp({
-        email: email.trim(), password,
-        options: { emailRedirectTo: redirectTo, data: { signup_flow: "verified_onboarding" } },
+        email: email.trim(),
+        password,
+        options: {
+          emailRedirectTo: redirectTo,
+          data: { signup_flow: "verified_onboarding" },
+        },
       });
       if (error) throw error;
       if (data.session) {
         await db.auth.signOut();
-        throw new Error("Enable Confirm email in Supabase Authentication settings before accepting registrations.");
+        throw new Error(
+          "Enable Confirm email in Supabase Authentication settings before accepting registrations.",
+        );
       }
       return data;
     },
     async resendVerification(email: string, redirectTo: string) {
-      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) throw new Error("Enter a valid email");
-      return result(db.auth.resend({ type: "signup", email: email.trim(), options: { emailRedirectTo: redirectTo } }));
+      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim()))
+        throw new Error("Enter a valid email");
+      return result(
+        db.auth.resend({
+          type: "signup",
+          email: email.trim(),
+          options: { emailRedirectTo: redirectTo },
+        }),
+      );
     },
     async magicLink(email: string, redirectTo: string) {
-      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) throw new Error("Enter a valid email");
-      return result(db.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: redirectTo, shouldCreateUser: false } }));
+      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim()))
+        throw new Error("Enter a valid email");
+      return result(
+        db.auth.signInWithOtp({
+          email: email.trim(),
+          options: { emailRedirectTo: redirectTo, shouldCreateUser: false },
+        }),
+      );
     },
     async finishOnboarding(input: {
-      display_name: string; username: string; role: "customer" | "owner"; bio?: string; avatar_url?: string;
+      display_name: string;
+      username: string;
+      role: "customer" | "owner";
+      bio?: string;
+      avatar_url?: string;
     }) {
       const display_name = input.display_name.trim();
       const username = input.username.trim().toLowerCase();
       const bio = (input.bio ?? "").trim();
       roleSchema.parse(input.role);
-      if (display_name.length < 2 || display_name.length > 100) throw new Error("Enter your name (2–100 characters)");
-      if (!/^[a-z0-9._]{3,30}$/.test(username)) throw new Error("Username must be 3–30 letters, numbers, dots or underscores");
-      if (bio.length > 160) throw new Error("Bio must be 160 characters or less");
+      if (display_name.length < 2 || display_name.length > 100)
+        throw new Error("Enter your name (2–100 characters)");
+      if (!/^[a-z0-9._]{3,30}$/.test(username))
+        throw new Error(
+          "Username must be 3–30 letters, numbers, dots or underscores",
+        );
+      if (bio.length > 160)
+        throw new Error("Bio must be 160 characters or less");
       const { data: auth, error: authError } = await db.auth.getUser();
       if (authError) throw authError;
-      if (!auth.user || (!auth.user.email_confirmed_at && !auth.user.phone_confirmed_at))
+      if (
+        !auth.user ||
+        (!auth.user.email_confirmed_at && !auth.user.phone_confirmed_at)
+      )
         throw new Error("Verify your email before completing your profile");
-      return result<Profile>(db.from("profiles").update({
-        display_name, username, role, bio, onboarding_completed: true,
-        ...(input.avatar_url !== undefined ? { avatar_url: input.avatar_url } : {}),
-      }).eq("id", auth.user.id).select("*").single());
+      return result<Profile>(
+        db
+          .from("profiles")
+          .update({
+            display_name,
+            username,
+            role,
+            bio,
+            onboarding_completed: true,
+            ...(input.avatar_url !== undefined
+              ? { avatar_url: input.avatar_url }
+              : {}),
+          })
+          .eq("id", auth.user.id)
+          .select("*")
+          .single(),
+      );
     },
     async signIn(email: string, password: string) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !password)

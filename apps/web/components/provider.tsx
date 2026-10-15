@@ -35,7 +35,8 @@ function Session({ api, children }: { api: Api; children: ReactNode }) {
   const cache = useQueryClient();
   const refreshProfile = useCallback(async () => {
     try {
-      const { data: sessionData, error: sessionError } = await api.db.auth.getSession();
+      const { data: sessionData, error: sessionError } =
+        await api.db.auth.getSession();
       if (sessionError) throw sessionError;
       if (!sessionData.session) {
         setUser(null);
@@ -45,7 +46,10 @@ function Session({ api, children }: { api: Api; children: ReactNode }) {
       // getUser checks the Auth server rather than trusting a cached local token.
       const { data: auth, error: authError } = await api.db.auth.getUser();
       if (authError) throw authError;
-      if (!auth.user || (!auth.user.email_confirmed_at && !auth.user.phone_confirmed_at)) {
+      if (
+        !auth.user ||
+        (!auth.user.email_confirmed_at && !auth.user.phone_confirmed_at)
+      ) {
         setUser(null);
         setError("Confirm your email address to continue.");
         return;
@@ -54,7 +58,7 @@ function Session({ api, children }: { api: Api; children: ReactNode }) {
       try {
         profile = await api.profile();
       } catch (e) {
-        if ((e as {code?: string}).code !== "PGRST116") throw e;
+        if ((e as { code?: string }).code !== "PGRST116") throw e;
         profile = await api.ensureProfile();
       }
       setUser(profile);
@@ -69,7 +73,9 @@ function Session({ api, children }: { api: Api; children: ReactNode }) {
   useEffect(() => {
     let active = true;
     void refreshProfile();
-    const { data: { subscription } } = api.db.auth.onAuthStateChange(() => {
+    const {
+      data: { subscription },
+    } = api.db.auth.onAuthStateChange(() => {
       setTimeout(() => {
         if (active) {
           cache.clear();
@@ -77,7 +83,10 @@ function Session({ api, children }: { api: Api; children: ReactNode }) {
         }
       }, 0);
     });
-    return () => { active = false; subscription.unsubscribe(); };
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, [api, cache, refreshProfile]);
   async function run(action: () => Promise<unknown>, success?: string) {
     try {
@@ -87,17 +96,23 @@ function Session({ api, children }: { api: Api; children: ReactNode }) {
       if (success) notify(success);
       return true;
     } catch (e) {
-      notify(e instanceof Error ? e.message : "Something went wrong. Try again.");
+      notify(
+        e instanceof Error ? e.message : "Something went wrong. Try again.",
+      );
       return false;
     }
   }
   return (
-    <Context.Provider value={{ api, user, loading, error, refreshProfile, notify, run }}>
+    <Context.Provider
+      value={{ api, user, loading, error, refreshProfile, notify, run }}
+    >
       {children}
       {notice && (
         <div className="toast" role="status">
           {notice}
-          <button onClick={() => notify("")} aria-label="Dismiss notification">×</button>
+          <button onClick={() => notify("")} aria-label="Dismiss notification">
+            ×
+          </button>
         </div>
       )}
     </Context.Provider>

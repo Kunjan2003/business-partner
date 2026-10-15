@@ -90,7 +90,9 @@ function Submit({ busy, children }: { busy: boolean; children: ReactNode }) {
 export default function Platform() {
   return (
     <Provider>
-      <AuthGate><Shell /></AuthGate>
+      <AuthGate>
+        <Shell />
+      </AuthGate>
     </Provider>
   );
 }
