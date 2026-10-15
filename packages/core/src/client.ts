@@ -145,7 +145,7 @@ export function createApi(
           .update({
             display_name,
             username,
-            role,
+            role: input.role,
             bio,
             onboarding_completed: true,
             ...(input.avatar_url !== undefined
