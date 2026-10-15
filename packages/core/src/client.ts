@@ -93,7 +93,7 @@ export function createApi(
       return data;
     },
     async resendVerification(email: string, redirectTo: string) {
-      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim()))
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
         throw new Error("Enter a valid email");
       return result(
         db.auth.resend({
@@ -104,7 +104,7 @@ export function createApi(
       );
     },
     async magicLink(email: string, redirectTo: string) {
-      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim()))
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
         throw new Error("Enter a valid email");
       return result(
         db.auth.signInWithOtp({
