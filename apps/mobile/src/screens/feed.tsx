@@ -246,7 +246,7 @@ export function PostCard({
           onPress={menu}
         />
       </View>
-      {!!post.video_uid && <VideoAttachment uid={post.video_uid}/>}
+      {!!post.video_uid && <VideoAttachment uid={post.video_uid} />}
       {!!post.image_url && (
         <Pressable
           accessibilityLabel="Double tap to like photo"

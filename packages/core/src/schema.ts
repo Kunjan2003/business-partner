@@ -20,7 +20,11 @@ export const postSchema = z.object({
   caption: z.string().trim().min(1).max(2200),
   image_url: z.string().url().or(z.literal("")),
   kind: z.enum(["post", "offer", "product", "video"]).default("post"),
-  video_uid: z.string().regex(/^[a-f0-9]{32}$/).nullable().optional(),
+  video_uid: z
+    .string()
+    .regex(/^[a-f0-9]{32}$/)
+    .nullable()
+    .optional(),
 });
 export const productSchema = z.object({
   business_id: z.string().uuid(),

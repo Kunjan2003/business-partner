@@ -1,27 +1,64 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
-const json=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{...cors,"Content-Type":"application/json"}});
-Deno.serve(async request=>{
-  if(request.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
-  if(request.method!=="POST")return json({error:"Method not allowed"},405);
-  const auth=request.headers.get("Authorization")??"";
-  const url=Deno.env.get("SUPABASE_URL"),anon=Deno.env.get("SUPABASE_ANON_KEY"),service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const account=Deno.env.get("CLOUDFLARE_ACCOUNT_ID"),token=Deno.env.get("CLOUDFLARE_STREAM_TOKEN");
-  if(!url||!anon||!service||!account||!token)return json({error:"Video status unavailable"},503);
-  const caller=createClient(url,anon,{global:{headers:{Authorization:auth}},auth:{persistSession:false}});
-  const {data:{user}}=await caller.auth.getUser();
-  if(!user)return json({error:"Log in first"},401);
-  const body=await request.json().catch(()=>({}));
-  if(!/^[a-f0-9]{32}$/.test(body.uid??""))return json({error:"Invalid video"},400);
-  const admin=createClient(url,service,{auth:{persistSession:false}});
-  const {data:upload}=await admin.from("video_uploads").select("uid,owner_id").eq("uid",body.uid).eq("owner_id",user.id).maybeSingle();
-  if(!upload)return json({error:"Video not found"},404);
-  const response=await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/stream/${upload.uid}`,{headers:{"Authorization":`Bearer ${token}`}});
-  if(!response.ok)return json({error:"Video processing status unavailable"},502);
-  const data=await response.json();
-  const info=data.result;
-  const state=info?.readyToStream?"ready":info?.status?.state==="error"?"error":"processing";
-  const update=await admin.from("video_uploads").update({state}).eq("uid",upload.uid);
-  if(update.error)return json({error:"Could not update status"},500);
-  return json({state});
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+const json = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { ...cors, "Content-Type": "application/json" },
+  });
+Deno.serve(async (request) => {
+  if (request.method === "OPTIONS")
+    return new Response(null, { status: 204, headers: cors });
+  if (request.method !== "POST")
+    return json({ error: "Method not allowed" }, 405);
+  const auth = request.headers.get("Authorization") ?? "";
+  const url = Deno.env.get("SUPABASE_URL"),
+    anon = Deno.env.get("SUPABASE_ANON_KEY"),
+    service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const account = Deno.env.get("CLOUDFLARE_ACCOUNT_ID"),
+    token = Deno.env.get("CLOUDFLARE_STREAM_TOKEN");
+  if (!url || !anon || !service || !account || !token)
+    return json({ error: "Video status unavailable" }, 503);
+  const caller = createClient(url, anon, {
+    global: { headers: { Authorization: auth } },
+    auth: { persistSession: false },
+  });
+  const {
+    data: { user },
+  } = await caller.auth.getUser();
+  if (!user) return json({ error: "Log in first" }, 401);
+  const body = await request.json().catch(() => ({}));
+  if (!/^[a-f0-9]{32}$/.test(body.uid ?? ""))
+    return json({ error: "Invalid video" }, 400);
+  const admin = createClient(url, service, { auth: { persistSession: false } });
+  const { data: upload } = await admin
+    .from("video_uploads")
+    .select("uid,owner_id")
+    .eq("uid", body.uid)
+    .eq("owner_id", user.id)
+    .maybeSingle();
+  if (!upload) return json({ error: "Video not found" }, 404);
+  const response = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${account}/stream/${upload.uid}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!response.ok)
+    return json({ error: "Video processing status unavailable" }, 502);
+  const data = await response.json();
+  const info = data.result;
+  const state = info?.readyToStream
+    ? "ready"
+    : info?.status?.state === "error"
+      ? "error"
+      : "processing";
+  const update = await admin
+    .from("video_uploads")
+    .update({ state })
+    .eq("uid", upload.uid);
+  if (update.error) return json({ error: "Could not update status" }, 500);
+  return json({ state });
 });

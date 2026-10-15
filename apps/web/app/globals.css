@@ -1411,6 +1411,21 @@ footer span {
   }
 }
 
-.post-video {background:#151515;display:grid;justify-items:center;padding:12px;gap:7px}
-.post-video iframe {display:block;width:min(100%,430px);aspect-ratio:9/16;border:0;border-radius:9px}
-.post-video small {color:#ccc;font-size:11px}
+.post-video {
+  background: #151515;
+  display: grid;
+  justify-items: center;
+  padding: 12px;
+  gap: 7px;
+}
+.post-video iframe {
+  display: block;
+  width: min(100%, 430px);
+  aspect-ratio: 9/16;
+  border: 0;
+  border-radius: 9px;
+}
+.post-video small {
+  color: #ccc;
+  font-size: 11px;
+}

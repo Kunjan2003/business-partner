@@ -1,4 +1,4 @@
-import {logOutWithPush} from "../push";
+import { logOutWithPush } from "../push";
 import React, { useState } from "react";
 import {
   View,

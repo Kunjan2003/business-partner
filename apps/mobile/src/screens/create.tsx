@@ -79,7 +79,10 @@ export default function Create({
           setPicking(true);
           void run(async () => {
             const selected = await pickPhoto();
-            if (selected) {setPhoto(selected);setVideo(null);}
+            if (selected) {
+              setPhoto(selected);
+              setVideo(null);
+            }
           }, []).finally(() => setPicking(false));
         }}
       >
@@ -106,24 +109,51 @@ export default function Create({
           </View>
         )}
       </Pressable>
-      <Pressable disabled={busy||picking} accessibilityRole="button" accessibilityLabel="Choose a short video"
-        onPress={()=> {
+      <Pressable
+        disabled={busy || picking}
+        accessibilityRole="button"
+        accessibilityLabel="Choose a short video"
+        onPress={() => {
           setPicking(true);
-          void run(async ()=>{
-            const permission=await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if(!permission.granted) throw new Error("Please allow video access.");
-            const result=await ImagePicker.launchImageLibraryAsync({mediaTypes:["videos"],quality:1});
-            if(!result.canceled){
-              const asset=result.assets[0];
-              if((asset.fileSize??0)>200*1024*1024)throw new Error("Videos must be under 200 MB.");
-              if(asset.duration && asset.duration>90000)throw new Error("Choose a video shorter than 90 seconds.");
-              setVideo(asset);setPhoto(null);setKind("Video reel");
+          void run(async () => {
+            const permission =
+              await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!permission.granted)
+              throw new Error("Please allow video access.");
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ["videos"],
+              quality: 1,
+            });
+            if (!result.canceled) {
+              const asset = result.assets[0];
+              if ((asset.fileSize ?? 0) > 200 * 1024 * 1024)
+                throw new Error("Videos must be under 200 MB.");
+              if (asset.duration && asset.duration > 90000)
+                throw new Error("Choose a video shorter than 90 seconds.");
+              setVideo(asset);
+              setPhoto(null);
+              setKind("Video reel");
             }
-          },[]).finally(()=>setPicking(false));
+          }, []).finally(() => setPicking(false));
         }}
-        style={{marginHorizontal:18,marginTop:13,padding:16,borderRadius:11,borderWidth:1,borderColor:colors.line,alignItems:"center"}}>
-        <Text style={{fontWeight:"700",color:colors.ink}}>{video ? "Video selected: "+(video.fileName??"short video") : "Choose short video / Reel"}</Text>
-        <Text style={[s.caption,{marginTop:5}]}>Up to 90 seconds · Maximum 200 MB</Text>
+        style={{
+          marginHorizontal: 18,
+          marginTop: 13,
+          padding: 16,
+          borderRadius: 11,
+          borderWidth: 1,
+          borderColor: colors.line,
+          alignItems: "center",
+        }}
+      >
+        <Text style={{ fontWeight: "700", color: colors.ink }}>
+          {video
+            ? "Video selected: " + (video.fileName ?? "short video")
+            : "Choose short video / Reel"}
+        </Text>
+        <Text style={[s.caption, { marginTop: 5 }]}>
+          Up to 90 seconds · Maximum 200 MB
+        </Text>
       </Pressable>
       <View style={{ padding: 18 }}>
         {photo && (
@@ -160,7 +190,12 @@ export default function Create({
         </Text>
         <View style={s.divider} />
         <Chips
-          values={["Photo / update", "Offer", "Product highlight", "Video reel"]}
+          values={[
+            "Photo / update",
+            "Offer",
+            "Product highlight",
+            "Video reel",
+          ]}
           value={kind}
           onChange={setKind}
         />
@@ -175,13 +210,29 @@ export default function Create({
             if (busy) return;
             setBusy(true);
             void run(async () => {
-              const image_url = !video && photo ? await api.uploadImage(photo.bytes,photo.mime) : "";
-              const video_uid = video ? await api.uploadVideo(b.id,{
-                uri: video.uri, name: video.fileName ?? "reel.mp4", type: video.mimeType ?? "video/mp4",
-              }):undefined;
+              const image_url =
+                !video && photo
+                  ? await api.uploadImage(photo.bytes, photo.mime)
+                  : "";
+              const video_uid = video
+                ? await api.uploadVideo(b.id, {
+                    uri: video.uri,
+                    name: video.fileName ?? "reel.mp4",
+                    type: video.mimeType ?? "video/mp4",
+                  })
+                : undefined;
               await api.createPost({
-                business_id:b.id,caption,image_url,video_uid,
-                kind:video_uid ? "video" : kind==="Offer" ? "offer" : kind==="Product highlight" ? "product" : "post",
+                business_id: b.id,
+                caption,
+                image_url,
+                video_uid,
+                kind: video_uid
+                  ? "video"
+                  : kind === "Offer"
+                    ? "offer"
+                    : kind === "Product highlight"
+                      ? "product"
+                      : "post",
               });
             }, ["feed", "posts", "stats"]).then((ok) => {
               setBusy(false);

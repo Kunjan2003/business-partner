@@ -26,7 +26,7 @@ import { useApp, pickPhoto, type Photo as PickedPhoto } from "../session";
 import type { Navigate } from "../navigation";
 import type { Chat, Message } from "@bp/core";
 import { timeAgo } from "./feed";
-import {enablePush} from "../push";
+import { enablePush } from "../push";
 export function Comments({ id }: { id: string }) {
   const { api, user, run } = useApp();
   const [body, setBody] = useState(""),
@@ -455,17 +455,25 @@ export function Conversation({ id }: { id: string }) {
 }
 export function Notifications() {
   const { api, user, run } = useApp();
-  const [pushMessage,setPushMessage]=useState("");
-  const [enabling,setEnabling]=useState(false);
+  const [pushMessage, setPushMessage] = useState("");
+  const [enabling, setEnabling] = useState(false);
   async function turnOnPush() {
     if (!user || enabling) return;
     setEnabling(true);
     try {
-      const ok = await enablePush(api,user.id,true);
-      setPushMessage(ok ? "Push notifications enabled on this device." : "Notification permission was not granted.");
-    } catch(e) {
-      setPushMessage(e instanceof Error ? e.message : "Could not enable push notifications.");
-    } finally { setEnabling(false); }
+      const ok = await enablePush(api, user.id, true);
+      setPushMessage(
+        ok
+          ? "Push notifications enabled on this device."
+          : "Notification permission was not granted.",
+      );
+    } catch (e) {
+      setPushMessage(
+        e instanceof Error ? e.message : "Could not enable push notifications.",
+      );
+    } finally {
+      setEnabling(false);
+    }
   }
   const query = useQuery({
     queryKey: ["notifications", user?.id],
@@ -530,18 +538,54 @@ export function Notifications() {
           )}
         </Pressable>
       )}
-      ListHeaderComponent={<>
-        <View style={{padding:17,margin:14,borderRadius:13,backgroundColor:"#f6f7f8",gap:9}}>
-          <Text style={{fontSize:15,fontWeight:"700",color:colors.ink}}>Never miss an update</Text>
-          <Text style={s.caption}>Get alerts for messages, follows, likes, and comments on this phone.</Text>
-          <Pressable accessibilityRole="button" onPress={()=>void turnOnPush()} disabled={enabling}
-            style={{backgroundColor:colors.ink,borderRadius:9,padding:12,alignItems:"center"}}>
-            <Text style={{color:"white",fontWeight:"700"}}>{enabling ? "Setting up…" : "Enable push notifications"}</Text>
-          </Pressable>
-          {!!pushMessage && <Text accessibilityRole="alert" style={s.caption}>{pushMessage}</Text>}
-        </View>
-        <QueryState loading={query.isLoading} error={query.error} retry={() => void query.refetch()}/>
-      </>}
+      ListHeaderComponent={
+        <>
+          <View
+            style={{
+              padding: 17,
+              margin: 14,
+              borderRadius: 13,
+              backgroundColor: "#f6f7f8",
+              gap: 9,
+            }}
+          >
+            <Text
+              style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}
+            >
+              Never miss an update
+            </Text>
+            <Text style={s.caption}>
+              Get alerts for messages, follows, likes, and comments on this
+              phone.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => void turnOnPush()}
+              disabled={enabling}
+              style={{
+                backgroundColor: colors.ink,
+                borderRadius: 9,
+                padding: 12,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ color: "white", fontWeight: "700" }}>
+                {enabling ? "Setting up…" : "Enable push notifications"}
+              </Text>
+            </Pressable>
+            {!!pushMessage && (
+              <Text accessibilityRole="alert" style={s.caption}>
+                {pushMessage}
+              </Text>
+            )}
+          </View>
+          <QueryState
+            loading={query.isLoading}
+            error={query.error}
+            retry={() => void query.refetch()}
+          />
+        </>
+      }
       ListEmptyComponent={
         !query.isLoading && !query.error ? (
           <Empty
