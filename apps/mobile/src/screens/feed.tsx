@@ -24,6 +24,7 @@ import {
   colors,
 } from "../ui";
 import type { Navigate } from "../navigation";
+import VideoAttachment from "../components/video-attachment";
 export function timeAgo(date: string) {
   const n = Math.max(
     0,
@@ -245,6 +246,7 @@ export function PostCard({
           onPress={menu}
         />
       </View>
+      {!!post.video_uid && <VideoAttachment uid={post.video_uid} />}
       {!!post.image_url && (
         <Pressable
           accessibilityLabel="Double tap to like photo"

@@ -1,3 +1,4 @@
+import { logOutWithPush } from "../push";
 import React, { useState } from "react";
 import {
   View,
@@ -586,7 +587,7 @@ export function Profile({
                   { text: "Cancel", style: "cancel" },
                   {
                     text: "Log out",
-                    onPress: () => void run(() => api.signOut(), []),
+                    onPress: () => void run(() => logOutWithPush(api), []),
                   },
                 ])
               }

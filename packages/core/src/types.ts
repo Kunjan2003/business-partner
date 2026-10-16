@@ -3,6 +3,9 @@ export type Profile = {
   display_name: string;
   role: "customer" | "owner";
   avatar_url: string | null;
+  username?: string | null;
+  bio?: string;
+  onboarding_completed?: boolean;
 };
 export type Business = {
   id: string;
@@ -23,7 +26,8 @@ export type Post = {
   business_id: string;
   caption: string;
   image_url: string;
-  kind: "post" | "offer" | "product";
+  kind: "post" | "offer" | "product" | "video";
+  video_uid?: string | null;
   created_at: string;
   businesses: Business;
   likes: { user_id: string }[];

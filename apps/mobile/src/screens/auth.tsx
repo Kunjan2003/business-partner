@@ -7,221 +7,347 @@ import {
   Platform,
   Alert,
   Pressable,
+  StyleSheet,
+  ActivityIndicator,
 } from "react-native";
-import { styles as s, Button, Field, Icon, colors } from "../ui";
+import { Button, Field, Icon, colors } from "../ui";
 import { useApp, googleSignIn } from "../session";
+
+type Mode = "login" | "signup" | "magic" | "sent";
+const redirectTo = "businesspartner://auth/callback";
 export default function Auth() {
   const { api, run } = useApp();
-  const [mode, setMode] = useState<"login" | "signup" | "phone">("login"),
-    [name, setName] = useState(""),
-    [role, setRole] = useState<"customer" | "owner">("customer"),
-    [email, setEmail] = useState(""),
-    [password, setPassword] = useState(""),
-    [phone, setPhone] = useState(""),
-    [code, setCode] = useState(""),
-    [sent, setSent] = useState(false),
-    [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<Mode>("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [visible, setVisible] = useState(false);
+  function changeMode(next: Mode) {
+    setMode(next);
+    setFeedback("");
+    setPassword("");
+  }
   async function submit() {
     if (busy) return;
+    if (!email.trim() || (mode !== "magic" && password.length < 1)) {
+      setFeedback("Enter your email and password.");
+      return;
+    }
     setBusy(true);
-    await run(async () => {
+    setFeedback("");
+    try {
       if (mode === "signup") {
-        const result = await api.signUp(
-          email.trim(),
-          password,
-          name,
-          role,
-          "businesspartner://auth/callback",
-        );
-        if (!result.session) {
-          Alert.alert(
-            "Check your email",
-            "Confirm your account, then come back and sign in.",
-          );
-          setMode("login");
-        }
-      } else if (mode === "phone") {
-        if (sent) await api.verifyOtp(phone.trim(), code.trim());
-        else {
-          await api.phoneOtp(phone.trim());
-          setSent(true);
-        }
-      } else await api.signIn(email.trim(), password);
-    }, ["profile"]);
-    setBusy(false);
+        await api.register(email, password, redirectTo);
+        setMode("sent");
+      } else if (mode === "magic") {
+        await api.magicLink(email, redirectTo);
+        setMode("sent");
+      } else {
+        await api.signIn(email, password);
+      }
+    } catch (e) {
+      setFeedback(
+        e instanceof Error ? e.message : "Unable to continue. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function resend() {
+    if (busy) return;
+    setBusy(true);
+    setFeedback("");
+    try {
+      await api.resendVerification(email, redirectTo);
+      setFeedback(
+        "Another confirmation email was requested. Check your inbox and spam folder.",
+      );
+    } catch (e) {
+      setFeedback(
+        e instanceof Error ? e.message : "Could not resend the email.",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
   return (
     <KeyboardAvoidingView
-      style={s.screen}
+      style={styles.root}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{
-          padding: 30,
-          flexGrow: 1,
-          justifyContent: "center",
-        }}
+        contentContainerStyle={styles.page}
       >
-        <View style={{ alignItems: "center", marginBottom: 35 }}>
-          <View
-            style={{
-              width: 70,
-              height: 70,
-              borderRadius: 21,
-              backgroundColor: colors.ink,
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 18,
-            }}
-          >
-            <Icon name="storefront-outline" color="white" size={34} />
+        <View style={styles.brand}>
+          <View style={styles.brandIcon}>
+            <Text style={styles.brandMark}>bp.</Text>
           </View>
-          <Text style={{ fontSize: 31, fontWeight: "800", letterSpacing: -1 }}>
-            Business Partner
-          </Text>
-          <Text
-            style={[
-              s.caption,
-              { textAlign: "center", marginTop: 10, maxWidth: 270 },
-            ]}
-          >
-            Discover local businesses. Follow your favorites. Connect with the
-            people behind them.
-          </Text>
+          <Text style={styles.brandName}>Business Partner</Text>
+          <Text style={styles.tagline}>Your neighborhood, connected.</Text>
         </View>
-        <Text style={{ fontSize: 21, fontWeight: "700", marginBottom: 22 }}>
-          {mode === "signup"
-            ? "Create your account"
-            : mode === "phone"
-              ? "Sign in with your phone"
-              : "Welcome back"}
-        </Text>
-        {mode === "signup" && (
-          <>
-            <Field
-              label="Full name"
-              value={name}
-              onChangeText={setName}
-              autoComplete="name"
-            />
-            <View style={[s.row, { marginBottom: 20 }]}>
-              {(["customer", "owner"] as const).map((r) => (
-                <Pressable
-                  key={r}
-                  onPress={() => setRole(r)}
-                  style={{
-                    flex: 1,
-                    padding: 13,
-                    borderWidth: role === r ? 2 : 1,
-                    borderColor: role === r ? colors.ink : colors.line,
-                    borderRadius: 10,
-                  }}
-                >
-                  <Icon
-                    name={
-                      r === "owner" ? "storefront-outline" : "person-outline"
+        <View style={styles.card}>
+          {mode === "sent" ? (
+            <>
+              <View style={styles.sent}>
+                <Icon name="mail-open-outline" size={38} color={colors.ink} />
+              </View>
+              <Text style={styles.title}>Check your email</Text>
+              <Text style={styles.subtitle}>
+                We sent a secure link to {email}. Open it on this device to
+                verify your email and finish creating your profile.
+              </Text>
+              <Button
+                title="Back to log in"
+                onPress={() => changeMode("login")}
+              />
+              <Pressable
+                style={styles.textButton}
+                onPress={() => void resend()}
+                disabled={busy}
+              >
+                <Text style={styles.link}>Resend confirmation email</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={styles.title}>
+                {mode === "signup"
+                  ? "Create your account"
+                  : mode === "magic"
+                    ? "Get a sign-in link"
+                    : "Welcome back"}
+              </Text>
+              <Text style={styles.subtitle}>
+                {mode === "signup"
+                  ? "Join your local community. Verify your email before setting up your profile."
+                  : mode === "magic"
+                    ? "We'll email you a one-time link to your existing account."
+                    : "Log in to follow businesses, explore, and connect."}
+              </Text>
+              <Field
+                label="Email address"
+                value={email}
+                onChangeText={setEmail}
+                placeholder="you@example.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+              />
+              {mode !== "magic" && (
+                <View>
+                  <Field
+                    label="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder={
+                      mode === "signup"
+                        ? "At least 8 characters"
+                        : "Enter your password"
                     }
-                    size={20}
+                    secureTextEntry={!visible}
+                    autoCapitalize="none"
+                    autoComplete={
+                      mode === "signup" ? "new-password" : "current-password"
+                    }
                   />
-                  <Text style={{ fontWeight: "600", marginTop: 7 }}>
-                    {r === "owner" ? "Business owner" : "Customer"}
+                  <Pressable
+                    onPress={() => setVisible(!visible)}
+                    style={styles.eye}
+                    accessibilityLabel={
+                      visible ? "Hide password" : "Show password"
+                    }
+                  >
+                    <Icon
+                      name={visible ? "eye-off-outline" : "eye-outline"}
+                      color={colors.muted}
+                      size={20}
+                    />
+                  </Pressable>
+                </View>
+              )}
+              <Button
+                busy={busy}
+                title={
+                  mode === "login"
+                    ? "Log in"
+                    : mode === "signup"
+                      ? "Send verification email"
+                      : "Email me a magic link"
+                }
+                onPress={() => void submit()}
+              />
+              {mode === "login" && (
+                <Pressable
+                  style={styles.textButton}
+                  onPress={() => changeMode("magic")}
+                >
+                  <Text style={styles.link}>
+                    Log in with an email link instead
                   </Text>
                 </Pressable>
-              ))}
-            </View>
-          </>
-        )}
-        {mode === "phone" ? (
-          <>
-            <Field
-              label="Phone number"
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="+91 98765 43210"
-              keyboardType="phone-pad"
-              editable={!sent}
-            />
-            {sent && (
-              <Field
-                label="Verification code"
-                value={code}
-                onChangeText={setCode}
-                keyboardType="number-pad"
-                autoComplete="sms-otp"
-              />
-            )}
-          </>
-        ) : (
-          <>
-            <Field
-              label="Email address"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-            />
-            <Field
-              label="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              autoComplete={
-                mode === "signup" ? "new-password" : "current-password"
-              }
-            />
-          </>
-        )}
-        <Button
-          title={
-            mode === "signup"
-              ? "Create account"
-              : mode === "phone"
-                ? sent
-                  ? "Verify code"
-                  : "Send code"
-                : "Log in"
-          }
-          busy={busy}
-          onPress={() => void submit()}
-        />
-        <Text style={[s.caption, { textAlign: "center", marginVertical: 18 }]}>
-          OR
-        </Text>
-        <Button
-          title="Continue with Google"
-          outline
-          disabled={busy}
-          onPress={() => void run(googleSignIn, ["profile"])}
-        />
-        <Pressable
-          onPress={() => {
-            setMode(mode === "phone" ? "login" : "phone");
-            setSent(false);
-          }}
-          style={{ padding: 14, alignItems: "center" }}
-        >
-          <Text style={{ color: colors.blue, fontWeight: "600" }}>
-            {mode === "phone" ? "Use email instead" : "Use phone instead"}
-          </Text>
-        </Pressable>
-        <View style={[s.divider, { marginVertical: 20 }]} />
-        <Pressable
-          onPress={() => setMode(mode === "signup" ? "login" : "signup")}
-          style={{ padding: 10, alignItems: "center" }}
-        >
-          <Text style={s.body}>
+              )}
+              {mode === "magic" && (
+                <Pressable
+                  style={styles.textButton}
+                  onPress={() => changeMode("login")}
+                >
+                  <Text style={styles.link}>Use my password instead</Text>
+                </Pressable>
+              )}
+              {mode === "login" && (
+                <>
+                  <View style={styles.orRow}>
+                    <View style={styles.line} />
+                    <Text style={styles.or}>OR</Text>
+                    <View style={styles.line} />
+                  </View>
+                  <Button
+                    title="Continue with Google"
+                    outline
+                    disabled={busy}
+                    onPress={() => void run(googleSignIn, ["profile"])}
+                  />
+                </>
+              )}
+            </>
+          )}
+          {!!feedback && (
+            <Text accessibilityRole="alert" style={styles.feedback}>
+              {feedback}
+            </Text>
+          )}
+        </View>
+        <View style={styles.switchCard}>
+          <Text style={styles.switchText}>
             {mode === "signup"
               ? "Already have an account?"
-              : "Don’t have an account?"}{" "}
-            <Text style={{ color: colors.blue, fontWeight: "700" }}>
+              : "Don't have an account?"}{" "}
+          </Text>
+          <Pressable
+            onPress={() => changeMode(mode === "signup" ? "login" : "signup")}
+          >
+            <Text style={styles.link}>
               {mode === "signup" ? "Log in" : "Sign up"}
             </Text>
+          </Pressable>
+        </View>
+        <View style={styles.footer}>
+          <Icon name="lock-closed-outline" color={colors.muted} size={13} />
+          <Text style={styles.footerText}>
+            A safer space for your local community.
           </Text>
-        </Pressable>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#fafafa" },
+  page: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingHorizontal: 23,
+    paddingVertical: 28,
+    maxWidth: 520,
+    width: "100%",
+    alignSelf: "center",
+  },
+  brand: { alignItems: "center", marginTop: 10, marginBottom: 35 },
+  brandIcon: {
+    width: 73,
+    height: 73,
+    backgroundColor: "#171717",
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 15,
+  },
+  brandMark: {
+    color: "white",
+    fontWeight: "900",
+    fontSize: 36,
+    letterSpacing: -3,
+  },
+  brandName: {
+    color: "#171717",
+    fontSize: 27,
+    fontWeight: "800",
+    letterSpacing: -1,
+  },
+  tagline: { color: colors.muted, fontSize: 13, marginTop: 6 },
+  card: {
+    backgroundColor: "white",
+    borderColor: "#e8e8e8",
+    borderWidth: 1,
+    borderRadius: 17,
+    padding: 24,
+    gap: 2,
+  },
+  title: {
+    fontSize: 23,
+    fontWeight: "800",
+    color: colors.ink,
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  subtitle: {
+    textAlign: "center",
+    color: "#797979",
+    fontSize: 13,
+    lineHeight: 21,
+    marginBottom: 24,
+  },
+  sent: {
+    borderColor: "#e6e6e6",
+    borderWidth: 1.5,
+    height: 82,
+    width: 82,
+    borderRadius: 41,
+    alignSelf: "center",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 25,
+  },
+  textButton: { paddingVertical: 14, alignItems: "center" },
+  link: { color: "#2966b8", fontSize: 13, fontWeight: "700" },
+  eye: { position: "absolute", right: 10, bottom: 31, padding: 4 },
+  orRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 14,
+    gap: 13,
+  },
+  line: { height: 1, flex: 1, backgroundColor: "#e8e8e8" },
+  or: { color: colors.muted, fontSize: 11, fontWeight: "600" },
+  feedback: {
+    backgroundColor: "#fff1f1",
+    color: "#a12433",
+    padding: 12,
+    marginTop: 13,
+    borderRadius: 9,
+    fontSize: 12,
+    lineHeight: 19,
+  },
+  switchCard: {
+    backgroundColor: "white",
+    marginTop: 13,
+    borderWidth: 1,
+    borderColor: "#e8e8e8",
+    borderRadius: 13,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  switchText: { color: "#555", fontSize: 13 },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 25,
+    gap: 6,
+  },
+  footerText: { fontSize: 11, color: colors.muted },
+});

@@ -2,9 +2,10 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path=public,extensions;
 select plan(8);
-insert into auth.users(id,raw_user_meta_data) values
- ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','{"display_name":"Test owner","role":"owner"}'),
- ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','{"display_name":"Test customer","role":"customer"}');
+-- Seed confirmed identities: unverified registrations should not receive public profiles.
+insert into auth.users(id,raw_user_meta_data,email_confirmed_at) values
+ ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','{"display_name":"Test owner","role":"owner"}',now()),
+ ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','{"display_name":"Test customer","role":"customer"}',now());
 select set_config('request.jwt.claim.sub','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',true);
 set local role authenticated;
 with inserted as(insert into businesses(owner_id,name,category,address,latitude,longitude) values(auth.uid(),'Coffee House','Food & drinks','Test road',23.0225,72.5714) returning id)

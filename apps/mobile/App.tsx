@@ -1,4 +1,12 @@
+import * as Sentry from "@sentry/react-native";
 import React, { useEffect, useState } from "react";
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || undefined,
+  enabled: !!process.env.EXPO_PUBLIC_SENTRY_DSN,
+  tracesSampleRate: 0.05,
+  sendDefaultPii: false,
+});
+
 import {
   View,
   Text,
@@ -24,6 +32,8 @@ import {
 } from "./src/ui";
 import type { Tab, Route, Navigate } from "./src/navigation";
 import Auth from "./src/screens/auth";
+import { enablePush, logOutWithPush } from "./src/push";
+import Onboarding from "./src/screens/onboarding";
 import { Feed, PostScreen } from "./src/screens/feed";
 import Explore from "./src/screens/explore";
 import Create from "./src/screens/create";
@@ -103,12 +113,13 @@ function Root() {
           <Button
             title="Log out"
             outline
-            onPress={() => void run(() => api.signOut(), [])}
+            onPress={() => void run(() => logOutWithPush(api), [])}
           />
         )}
       </View>
     );
   if (!user) return <Auth />;
+  if (user.onboarding_completed === false) return <Onboarding />;
   return <Shell key={user.id} />;
 }
 const titles: Record<Route["name"], string> = {
@@ -125,6 +136,10 @@ const titles: Record<Route["name"], string> = {
 };
 function Shell() {
   const { api, user } = useApp();
+  useEffect(() => {
+    if (user) void enablePush(api, user.id, false).catch(() => {});
+  }, [api, user?.id]);
+
   const [tab, setTab] = useState<Tab>("home"),
     [stack, setStack] = useState<Route[]>([]);
   const route = stack.at(-1);

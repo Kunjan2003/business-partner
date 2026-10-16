@@ -31,7 +31,10 @@
         {
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-notifications",
+      "@sentry/react-native",
+      "expo-video"
     ]
   }
 }

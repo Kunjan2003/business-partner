@@ -72,6 +72,91 @@ export function createApi(
       if (error) throw error;
       return data;
     },
+    // Creates a pending Auth identity. A public profile is created only after verification.
+    async register(email: string, password: string, redirectTo: string) {
+      credentialsSchema.parse({ email: email.trim(), password });
+      const { data, error } = await db.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          emailRedirectTo: redirectTo,
+          data: { signup_flow: "verified_onboarding" },
+        },
+      });
+      if (error) throw error;
+      if (data.session) {
+        await db.auth.signOut();
+        throw new Error(
+          "Enable Confirm email in Supabase Authentication settings before accepting registrations.",
+        );
+      }
+      return data;
+    },
+    async resendVerification(email: string, redirectTo: string) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
+        throw new Error("Enter a valid email");
+      return result(
+        db.auth.resend({
+          type: "signup",
+          email: email.trim(),
+          options: { emailRedirectTo: redirectTo },
+        }),
+      );
+    },
+    async magicLink(email: string, redirectTo: string) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
+        throw new Error("Enter a valid email");
+      return result(
+        db.auth.signInWithOtp({
+          email: email.trim(),
+          options: { emailRedirectTo: redirectTo, shouldCreateUser: false },
+        }),
+      );
+    },
+    async finishOnboarding(input: {
+      display_name: string;
+      username: string;
+      role: "customer" | "owner";
+      bio?: string;
+      avatar_url?: string;
+    }) {
+      const display_name = input.display_name.trim();
+      const username = input.username.trim().toLowerCase();
+      const bio = (input.bio ?? "").trim();
+      roleSchema.parse(input.role);
+      if (display_name.length < 2 || display_name.length > 100)
+        throw new Error("Enter your name (2–100 characters)");
+      if (!/^[a-z0-9._]{3,30}$/.test(username))
+        throw new Error(
+          "Username must be 3–30 letters, numbers, dots or underscores",
+        );
+      if (bio.length > 160)
+        throw new Error("Bio must be 160 characters or less");
+      const { data: auth, error: authError } = await db.auth.getUser();
+      if (authError) throw authError;
+      if (
+        !auth.user ||
+        (!auth.user.email_confirmed_at && !auth.user.phone_confirmed_at)
+      )
+        throw new Error("Verify your email before completing your profile");
+      return result<Profile>(
+        db
+          .from("profiles")
+          .update({
+            display_name,
+            username,
+            role: input.role,
+            bio,
+            onboarding_completed: true,
+            ...(input.avatar_url !== undefined
+              ? { avatar_url: input.avatar_url }
+              : {}),
+          })
+          .eq("id", auth.user.id)
+          .select("*")
+          .single(),
+      );
+    },
     async signIn(email: string, password: string) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !password)
         throw new Error("Enter your email and password");
@@ -216,6 +301,76 @@ export function createApi(
         );
       }
       return result<Post[]>(q);
+    },
+    // Registration is restricted by push_devices RLS to the signed-in user.
+    async registerPushToken(expo_token: string, platform: "android" | "ios") {
+      if (!/^Expo(nent)?PushToken\[[A-Za-z0-9_-]+\]$/.test(expo_token))
+        throw new Error("Invalid Expo push token");
+      return result(
+        db.from("push_devices").upsert(
+          {
+            expo_token,
+            platform,
+            user_id: await uid(),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "expo_token" },
+        ),
+      );
+    },
+    async removePushToken(expo_token: string) {
+      return result(
+        db
+          .from("push_devices")
+          .delete()
+          .eq("expo_token", expo_token)
+          .eq("user_id", await uid()),
+      );
+    },
+    async startVideoUpload(
+      business_id: string,
+    ): Promise<{ uid: string; uploadURL: string }> {
+      if (!/^[a-f0-9-]{36}$/i.test(business_id))
+        throw new Error("Invalid business");
+      const { data, error } = await db.functions.invoke("stream-upload", {
+        body: { business_id },
+      });
+      if (error) throw error;
+      if (
+        !data ||
+        typeof data.uid !== "string" ||
+        typeof data.uploadURL !== "string" ||
+        !/^https:\/\//.test(data.uploadURL)
+      )
+        throw new Error("Invalid video upload response");
+      return { uid: data.uid, uploadURL: data.uploadURL };
+    },
+    async uploadVideo(
+      business_id: string,
+      file: Blob | { uri: string; name: string; type: string },
+    ) {
+      const upload = await this.startVideoUpload(business_id);
+      const form = new FormData();
+      form.append("file", file as Blob);
+      const response = await fetch(upload.uploadURL, {
+        method: "POST",
+        body: form,
+      });
+      if (!response.ok)
+        throw new Error("Video upload failed. Please try again.");
+      return upload.uid;
+    },
+    async videoStatus(uid: string): Promise<"ready" | "processing" | "error"> {
+      if (!/^[a-f0-9]{32}$/.test(uid)) throw new Error("Invalid video");
+      const { data, error } = await db.functions.invoke("stream-status", {
+        body: { uid },
+      });
+      if (error) throw error;
+      return data?.state === "ready"
+        ? "ready"
+        : data?.state === "error"
+          ? "error"
+          : "processing";
     },
     async createPost(input: unknown) {
       return result(db.from("posts").insert(postSchema.parse(input)));

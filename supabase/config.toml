@@ -19,7 +19,14 @@ jwt_expiry = 3600
 enable_signup = true
 [auth.email]
 enable_signup = true
-enable_confirmations = false
+enable_confirmations = true
 [storage]
 enabled = true
 file_size_limit = "6MiB"
+
+[functions.push-worker]
+verify_jwt = false
+[functions.stream-upload]
+verify_jwt = true
+[functions.stream-status]
+verify_jwt = true

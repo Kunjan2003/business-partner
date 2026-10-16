@@ -4,6 +4,7 @@ import {
   useContext,
   useState,
   useEffect,
+  useCallback,
   type ReactNode,
 } from "react";
 import {
@@ -15,6 +16,9 @@ import { makeClient, createApi, type Api, type Profile } from "@bp/core";
 const Context = createContext<{
   api: Api;
   user: Profile | null;
+  loading: boolean;
+  error: string;
+  refreshProfile: () => Promise<void>;
   notify: (text: string) => void;
   run: (action: () => Promise<unknown>, success?: string) => Promise<boolean>;
 } | null>(null);
@@ -24,54 +28,84 @@ export function useApp() {
   return ctx;
 }
 function Session({ api, children }: { api: Api; children: ReactNode }) {
-  const [user, setUser] = useState<Profile | null>(null),
-    [notice, notify] = useState("");
+  const [user, setUser] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [notice, notify] = useState("");
   const cache = useQueryClient();
+  const refreshProfile = useCallback(async () => {
+    try {
+      const { data: sessionData, error: sessionError } =
+        await api.db.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!sessionData.session) {
+        setUser(null);
+        setError("");
+        return;
+      }
+      // getUser checks the Auth server rather than trusting a cached local token.
+      const { data: auth, error: authError } = await api.db.auth.getUser();
+      if (authError) throw authError;
+      if (
+        !auth.user ||
+        (!auth.user.email_confirmed_at && !auth.user.phone_confirmed_at)
+      ) {
+        setUser(null);
+        setError("Confirm your email address to continue.");
+        return;
+      }
+      let profile: Profile;
+      try {
+        profile = await api.profile();
+      } catch (e) {
+        if ((e as { code?: string }).code !== "PGRST116") throw e;
+        profile = await api.ensureProfile();
+      }
+      setUser(profile);
+      setError("");
+    } catch (e) {
+      setUser(null);
+      setError(e instanceof Error ? e.message : "Could not load your account.");
+    } finally {
+      setLoading(false);
+    }
+  }, [api]);
   useEffect(() => {
-    let alive = true;
-    const update = () => {
-      api
-        .profile()
-        .then((p) => {
-          if (alive) setUser(p);
-        })
-        .catch(() => {
-          if (alive) setUser(null);
-        });
-    };
-    update();
+    let active = true;
+    void refreshProfile();
     const {
       data: { subscription },
     } = api.db.auth.onAuthStateChange(() => {
       setTimeout(() => {
-        cache.clear();
-        update();
+        if (active) {
+          cache.clear();
+          void refreshProfile();
+        }
       }, 0);
     });
     return () => {
-      alive = false;
+      active = false;
       subscription.unsubscribe();
     };
-  }, [api, cache]);
+  }, [api, cache, refreshProfile]);
   async function run(action: () => Promise<unknown>, success?: string) {
     try {
       await action();
       await cache.invalidateQueries();
+      await refreshProfile();
       if (success) notify(success);
       return true;
     } catch (e) {
       notify(
-        e instanceof Error
-          ? e.message
-          : typeof e === "object" && e && "message" in e
-            ? String(e.message)
-            : "Something went wrong. Try again.",
+        e instanceof Error ? e.message : "Something went wrong. Try again.",
       );
       return false;
     }
   }
   return (
-    <Context.Provider value={{ api, user, notify, run }}>
+    <Context.Provider
+      value={{ api, user, loading, error, refreshProfile, notify, run }}
+    >
       {children}
       {notice && (
         <div className="toast" role="status">
