@@ -110,6 +110,7 @@ function Root() {
         </Text>
       </View>
     );
+  if (session && recovery) return <ResetPassword />;
   if (profileError)
     return (
       <View style={{ padding: 24, flex: 1, justifyContent: "center" }}>
@@ -126,7 +127,6 @@ function Root() {
         )}
       </View>
     );
-  if (session && recovery) return <ResetPassword />;
   if (!user) return <Auth />;
   if (user.onboarding_completed === false) return <Onboarding />;
   return <Shell key={user.id} />;

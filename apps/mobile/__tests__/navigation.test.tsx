@@ -246,3 +246,11 @@ test("recovery session opens password form before the app and checks confirmatio
   await waitFor(() => expect(mockContext.finishRecovery).toHaveBeenCalled());
   expect(mockApi.changePassword).toHaveBeenCalledWith("new-password-123");
 });
+
+test("password recovery stays accessible when profile loading has failed", () => {
+  mockContext.recovery = true;
+  mockContext.profileError = new Error("Profile unavailable");
+  const screen = render(<App />);
+  expect(screen.getByLabelText("New password")).toBeTruthy();
+  expect(screen.queryByText("We couldn’t load your account")).toBeNull();
+});

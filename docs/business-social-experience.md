@@ -21,3 +21,11 @@ This is a business social experience, not complete Instagram feature parity. The
 Automated validation covers profile input, unsafe links, duplicate usernames, authenticated update scope, website migration/grants, password recovery requests, existing database security rules, native editing, recovery gating and password confirmation. Production web build and Android export are also required.
 
 Live SMTP delivery, OAuth credentials, production migration application and physical-device verification require the configured Supabase deployment. The local browser runtime could not reach the development server, so visual browser verification was unavailable in this environment.
+
+## Merge hardening
+
+- Web callback exchange is explicit and deduplicated across repeated React effects. Provider errors remain visible, external redirect parameters are ignored, and password recovery returns to the reset form.
+- Local Supabase redirects include the password-recovery callback query string.
+- Native recovery remains available if the public profile query fails.
+- CI passes the built-in GitHub token to Supabase CLI setup to avoid the observed unauthenticated release-lookup rate limit; cleanup only runs if CLI setup succeeded.
+- Next.js is pinned to 16.4.2, the patch recommended by the dependency audit for the previous 16.4.0 installation. Remaining Expo/React Native tooling advisories require upstream-compatible fixes; incompatible automatic downgrades were not applied.
