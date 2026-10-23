@@ -4,6 +4,8 @@ import {
   type SupabaseClientOptions,
 } from "@supabase/supabase-js";
 import {
+  profileDetailsSchema,
+  type ProfileDetailsInput,
   businessSchema,
   credentialsSchema,
   postSchema,
@@ -161,6 +163,39 @@ export function createApi(
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !password)
         throw new Error("Enter your email and password");
       return result(db.auth.signInWithPassword({ email, password }));
+    },
+    async resetPassword(email: string, redirectTo: string) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
+        throw new Error("Enter a valid email");
+      return result(
+        db.auth.resetPasswordForEmail(email.trim(), { redirectTo }),
+      );
+    },
+    async changePassword(password: string) {
+      credentialsSchema.shape.password.parse(password);
+      await uid();
+      return result(db.auth.updateUser({ password }));
+    },
+    async saveProfile(input: ProfileDetailsInput) {
+      const value = profileDetailsSchema.parse(input);
+      const { data, error } = await db
+        .from("profiles")
+        .update(value)
+        .eq("id", await uid())
+        .select("*")
+        .single();
+      if (error?.code === "23505")
+        throw new Error("That username is already taken. Try another one.");
+      if (error) throw error;
+      return data as Profile;
+    },
+    async followedCount() {
+      const { count, error } = await db
+        .from("follows")
+        .select("business_id", { count: "exact", head: true })
+        .eq("user_id", await uid());
+      if (error) throw error;
+      return count ?? 0;
     },
     async signOut() {
       const { error } = await db.auth.signOut();

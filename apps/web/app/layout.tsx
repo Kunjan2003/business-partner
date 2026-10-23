@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./social.css";
 import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Business Partner · Your neighborhood, connected",

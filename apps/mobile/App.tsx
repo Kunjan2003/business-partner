@@ -31,7 +31,7 @@ import {
   colors,
 } from "./src/ui";
 import type { Tab, Route, Navigate } from "./src/navigation";
-import Auth from "./src/screens/auth";
+import Auth, { ResetPassword } from "./src/screens/auth";
 import { enablePush, logOutWithPush } from "./src/push";
 import Onboarding from "./src/screens/onboarding";
 import { Feed, PostScreen } from "./src/screens/feed";
@@ -83,8 +83,16 @@ export default function App() {
   );
 }
 function Root() {
-  const { user, session, loading, profileError, reloadProfile, api, run } =
-    useApp();
+  const {
+    user,
+    session,
+    loading,
+    profileError,
+    reloadProfile,
+    api,
+    run,
+    recovery,
+  } = useApp();
   if (!configured)
     return (
       <Empty
@@ -118,6 +126,7 @@ function Root() {
         )}
       </View>
     );
+  if (session && recovery) return <ResetPassword />;
   if (!user) return <Auth />;
   if (user.onboarding_completed === false) return <Onboarding />;
   return <Shell key={user.id} />;
@@ -130,6 +139,7 @@ const titles: Record<Route["name"], string> = {
   saved: "Saved posts",
   notifications: "Activity",
   "edit-profile": "Edit profile",
+  security: "Password and security",
   "edit-business": "Business details",
   products: "Your products",
   analytics: "Dashboard",
@@ -188,6 +198,8 @@ function Shell() {
           return <Feed saved navigate={navigate} />;
         case "notifications":
           return <Notifications />;
+        case "security":
+          return <ResetPassword done={back} />;
         case "edit-profile":
           return <EditProfile done={back} />;
         case "edit-business":
@@ -234,7 +246,7 @@ function Shell() {
                     ? "New post"
                     : tab === "inbox"
                       ? "Messages"
-                      : user?.display_name}
+                      : user?.username || user?.display_name}
             </Text>
             <View style={[s.row, { gap: 8 }]}>
               <IconButton

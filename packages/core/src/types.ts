@@ -5,6 +5,7 @@ export type Profile = {
   avatar_url: string | null;
   username?: string | null;
   bio?: string;
+  website?: string;
   onboarding_completed?: boolean;
 };
 export type Business = {

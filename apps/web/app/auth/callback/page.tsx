@@ -22,7 +22,10 @@ export default function Callback() {
     }
     db.auth.exchangeCodeForSession(code).then(({ error }) => {
       if (error) setStatus(error.message);
-      else window.location.replace("/");
+      else
+        window.location.replace(
+          params.get("recovery") === "1" ? "/?recovery=1" : "/",
+        );
     });
   }, []);
   return (

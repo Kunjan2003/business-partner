@@ -63,6 +63,8 @@ type AppContext = {
   api: Api;
   user: Profile | null;
   session: Session | null;
+  recovery: boolean;
+  finishRecovery: () => void;
   loading: boolean;
   profileError: unknown;
   reloadProfile: () => void;
@@ -82,6 +84,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 }
 function SessionProvider({ children }: { children: React.ReactNode }) {
+  const [recovery, setRecovery] = useState(false);
   const [session, setSession] = useState<Session | null>(null),
     [initial, setInitial] = useState(true),
     [sessionError, setSessionError] = useState<unknown>(null);
@@ -112,7 +115,11 @@ function SessionProvider({ children }: { children: React.ReactNode }) {
     });
     const {
       data: { subscription },
-    } = api.db.auth.onAuthStateChange((_event, next) => accept(next));
+    } = api.db.auth.onAuthStateChange((event, next) => {
+      if (event === "PASSWORD_RECOVERY") setRecovery(true);
+      if (!next) setRecovery(false);
+      accept(next);
+    });
     const app = AppState.addEventListener("change", (state) => {
       if (state === "active") api!.db.auth.startAutoRefresh();
       else api!.db.auth.stopAutoRefresh();
@@ -183,6 +190,8 @@ function SessionProvider({ children }: { children: React.ReactNode }) {
     <Context.Provider
       value={{
         api: api!,
+        recovery,
+        finishRecovery: () => setRecovery(false),
         user: profile.data ?? null,
         session,
         loading: initial || (!!session && profile.isLoading),

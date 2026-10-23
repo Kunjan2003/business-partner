@@ -53,6 +53,11 @@ export function Profile({
     queryKey: mine ? ["my-business", user?.id] : ["business", businessId],
     queryFn: () => (businessId ? api.business(businessId) : api.myBusiness()),
   });
+  const followedCount = useQuery({
+    queryKey: ["followed-count", user?.id],
+    queryFn: () => api.followedCount(),
+    enabled: mine,
+  });
   const b = business.data;
   const own = b?.owner_id === user?.id;
   const stats = useQuery({
@@ -104,8 +109,8 @@ export function Profile({
           <View style={{ paddingHorizontal: 18, paddingTop: 20 }}>
             <View style={[s.row, { justifyContent: "space-between" }]}>
               <Avatar
-                uri={b?.logo_url || user?.avatar_url}
-                name={b?.name || user?.display_name || "Business"}
+                uri={mine ? user?.avatar_url : b?.logo_url}
+                name={(mine ? user?.display_name : b?.name) || "Business"}
                 size={84}
               />
               {b ? (
@@ -113,13 +118,18 @@ export function Profile({
                   {[
                     ["posts", "Posts"],
                     ["followers", "Followers"],
-                    ["products", "Products"],
+                    [
+                      mine ? "following" : "products",
+                      mine ? "Following" : "Products",
+                    ],
                   ].map(([key, label]) => (
                     <View key={key} style={s.stat}>
                       <Text style={s.statNumber}>
-                        {stats.data?.[
-                          key as "posts" | "followers" | "products"
-                        ] ?? "—"}
+                        {key === "following"
+                          ? (followedCount.data ?? "—")
+                          : (stats.data?.[
+                              key as "posts" | "followers" | "products"
+                            ] ?? "—")}
                       </Text>
                       <Text style={s.statLabel}>{label}</Text>
                     </View>
@@ -141,6 +151,23 @@ export function Profile({
             <Text style={[s.bold, { marginTop: 16, fontSize: 14 }]}>
               {b?.name || user?.display_name}
             </Text>
+            {mine && !!user?.username && (
+              <Text style={s.caption}>@{user.username}</Text>
+            )}
+            {mine && !!user?.bio && (
+              <Text style={[s.body, { marginTop: 6 }]}>{user.bio}</Text>
+            )}
+            {mine && !!user?.website && (
+              <Pressable
+                onPress={() =>
+                  void run(() => Linking.openURL(user.website!), [])
+                }
+              >
+                <Text style={{ color: colors.blue, marginTop: 6 }}>
+                  {user.website}
+                </Text>
+              </Pressable>
+            )}
             {b && (
               <>
                 <Text style={[s.caption, { marginTop: 4 }]}>
@@ -560,6 +587,7 @@ export function Profile({
           >
             {[
               ["bookmark-outline", "Saved posts", "saved"],
+              ["lock-closed-outline", "Password and security", "security"],
               ["notifications-outline", "Activity", "notifications"],
               ...(user?.role === "owner"
                 ? [
@@ -640,6 +668,10 @@ export function Profile({
 export function EditProfile({ done }: { done: () => void }) {
   const { api, user, run } = useApp();
   const [name, setName] = useState(user?.display_name ?? ""),
+    [username, setUsername] = useState(user?.username ?? ""),
+    [bio, setBio] = useState(user?.bio ?? ""),
+    [website, setWebsite] = useState(user?.website ?? ""),
+    [removed, setRemoved] = useState(false),
     [role, setRole] = useState(user?.role ?? "customer"),
     [photo, setPhoto] = useState<PickedPhoto | null>(null),
     [busy, setBusy] = useState(false);
@@ -652,12 +684,51 @@ export function EditProfile({ done }: { done: () => void }) {
         onPress={() => void run(async () => setPhoto(await pickPhoto()), [])}
         style={{ alignItems: "center", marginBottom: 26 }}
       >
-        <Avatar name={name} uri={photo?.uri ?? user?.avatar_url} size={88} />
+        <Avatar
+          name={name}
+          uri={photo?.uri ?? (removed ? null : user?.avatar_url)}
+          size={88}
+        />
         <Text style={{ color: colors.blue, fontWeight: "600", marginTop: 13 }}>
           Change profile photo
         </Text>
       </Pressable>
+      <Pressable
+        onPress={() => {
+          setPhoto(null);
+          setRemoved(true);
+        }}
+        style={{ alignItems: "center", marginBottom: 22 }}
+      >
+        <Text style={{ color: colors.blue }}>Remove profile photo</Text>
+      </Pressable>
       <Field label="Name" value={name} onChangeText={setName} maxLength={100} />
+      <Field
+        label="Username"
+        value={username}
+        onChangeText={setUsername}
+        autoCapitalize="none"
+        maxLength={30}
+      />
+      <Field
+        label="Website"
+        value={website}
+        onChangeText={setWebsite}
+        autoCapitalize="none"
+        keyboardType="url"
+        placeholder="https://your-business.com"
+        maxLength={300}
+      />
+      <Field
+        label="Bio"
+        value={bio}
+        onChangeText={setBio}
+        multiline
+        maxLength={160}
+      />
+      <Text style={[s.caption, { textAlign: "right", marginBottom: 18 }]}>
+        {bio.length} / 160
+      </Text>
       <Text style={s.label}>Account type</Text>
       <Chips
         values={["customer", "owner"]}
@@ -677,7 +748,14 @@ export function EditProfile({ done }: { done: () => void }) {
             const url = photo
               ? await api.uploadImage(photo.bytes, photo.mime)
               : undefined;
-            await api.updateProfile(name, role, url);
+            await api.saveProfile({
+              display_name: name,
+              username,
+              bio,
+              website,
+              role,
+              avatar_url: url ?? (removed ? "" : undefined),
+            });
           }, ["profile"]).then((ok) => {
             setBusy(false);
             if (ok) done();

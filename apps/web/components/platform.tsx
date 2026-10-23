@@ -22,6 +22,7 @@ import {
   LayoutDashboard,
   Menu,
   X,
+  UserRound,
 } from "lucide-react";
 import {
   categories,
@@ -35,6 +36,7 @@ import {
 } from "@bp/core";
 import Provider, { useApp } from "./provider";
 import AuthGate from "./auth-gate";
+import AccountProfile from "./account-profile";
 type View =
   | "feed"
   | "search"
@@ -46,10 +48,10 @@ type View =
   | "account"
   | "admin";
 const nav = [
-  ["feed", "Your feed", Home],
-  ["search", "Explore nearby", Search],
+  ["feed", "Home", Home],
+  ["search", "Explore", Search],
   ["messages", "Messages", MessageCircle],
-  ["saved", "Saved finds", Bookmark],
+  ["saved", "Saved", Bookmark],
   ["business", "My business", Store],
   ["dashboard", "Dashboard", LayoutDashboard],
   ["notifications", "Notifications", Bell],
@@ -126,14 +128,14 @@ function Shell() {
     setView("messages");
   }
   return (
-    <div className="shell">
+    <div className={`shell${view === "account" ? " profile-shell" : ""}`}>
       <aside className={menu ? "sidebar open" : "sidebar"}>
         <a className="brand" href="/">
           {" "}
           <span className="brand-mark">bp</span> Business Partner
           <span className="brand-dot">.</span>
         </a>
-        <p className="eyebrow">YOUR LOCAL WORLD</p>
+
         <nav>
           {nav
             .filter(
@@ -158,21 +160,20 @@ function Shell() {
             </button>
           )}
         </nav>
-        <div className="sidebar-card">
-          <span>
-            Made for the places
-            <br />
-            that make your day.
-          </span>
-          <p>Shop small. Connect local.</p>
-        </div>
+        <button className="nav" onClick={() => navigate("business")}>
+          <Plus size={24} /> Create
+        </button>
         <button className="account" onClick={() => navigate("account")}>
           <span className="avatar">
-            {user?.display_name[0]?.toUpperCase() ?? "↗"}
+            {user?.avatar_url ? (
+              <img src={user.avatar_url} alt="" />
+            ) : (
+              (user?.display_name[0]?.toUpperCase() ?? "B")
+            )}
           </span>
           <span>
-            <b>{user?.display_name ?? "Join your neighborhood"}</b>
-            <small>{user?.role ?? "Sign in or create an account"}</small>
+            <b>{user?.username || user?.display_name || "Profile"}</b>
+            <small>Profile</small>
           </span>
         </button>
         {user && (
@@ -211,7 +212,12 @@ function Shell() {
           {business ? (
             <BusinessPage id={business} openChat={openChat} />
           ) : view === "account" ? (
-            <Account />
+            <AccountProfile
+              manage={() => navigate("business")}
+              renderPost={(post) => (
+                <PostCard post={post} openBusiness={openBusiness} />
+              )}
+            />
           ) : view === "feed" || view === "saved" ? (
             <Feed saved={view === "saved"} openBusiness={openBusiness} />
           ) : view === "search" ? (
@@ -232,6 +238,26 @@ function Shell() {
           Business Partner <span>Good things happen close to home.</span>
         </footer>
       </main>
+      <nav className="mobile-bottom-nav" aria-label="Primary navigation">
+        {(
+          [
+            ["feed", "Home", Home],
+            ["search", "Explore", Search],
+            ["business", "Create", Plus],
+            ["messages", "Messages", MessageCircle],
+            ["account", "Profile", UserRound],
+          ] as const
+        ).map(([id, label, Icon]) => (
+          <button
+            key={id}
+            aria-label={label}
+            aria-current={view === id ? "page" : undefined}
+            onClick={() => navigate(id)}
+          >
+            <Icon size={25} />
+          </button>
+        ))}
+      </nav>
       <aside className="rightbar">
         <div className="local-card">
           <p className="eyebrow">A LITTLE CLOSER</p>
@@ -271,185 +297,6 @@ function Shell() {
     </div>
   );
 }
-function Account() {
-  const { api, user, run } = useApp();
-  const [mode, setMode] = useState<"login" | "signup" | "phone">("login"),
-    [busy, setBusy] = useState(false),
-    [sent, setSent] = useState(false),
-    [phone, setPhone] = useState("");
-  async function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const d = new FormData(e.currentTarget);
-    setBusy(true);
-    await run(
-      async () => {
-        if (user) {
-          await api.updateProfile(
-            String(d.get("name")),
-            d.get("role") as "owner" | "customer",
-          );
-          window.location.reload();
-        } else if (mode === "signup") {
-          const data = await api.signUp(
-            String(d.get("email")),
-            String(d.get("password")),
-            String(d.get("name")),
-            d.get("role") as "owner" | "customer",
-            `${location.origin}/auth/callback`,
-          );
-          if (!data.session)
-            throw new Error(
-              "Check your email to confirm your account, then sign in.",
-            );
-        } else if (mode === "phone") {
-          if (sent) await api.verifyOtp(phone, String(d.get("otp")));
-          else {
-            await api.phoneOtp(phone);
-            setSent(true);
-          }
-        } else
-          await api.signIn(String(d.get("email")), String(d.get("password")));
-      },
-      mode === "phone" && !sent ? "Verification code sent" : "Account updated",
-    );
-    setBusy(false);
-  }
-  return (
-    <section className="auth">
-      <p className="eyebrow">YOUR LOCAL COMMUNITY</p>
-      <h1>
-        {user
-          ? "Your account"
-          : mode === "signup"
-            ? "Come on in."
-            : "Welcome back."}
-      </h1>
-      <p className="subtitle">
-        Discover the businesses and people that make your neighborhood yours.
-      </p>
-      {!user && (
-        <div className="tabs">
-          {(["login", "signup", "phone"] as const).map((m) => (
-            <button
-              className={m === mode ? "selected" : ""}
-              key={m}
-              onClick={() => setMode(m)}
-            >
-              {m === "login"
-                ? "Sign in"
-                : m === "signup"
-                  ? "Create account"
-                  : "Phone"}
-            </button>
-          ))}
-        </div>
-      )}
-      <form className="panel form" onSubmit={submit}>
-        {(user || mode === "signup") && (
-          <>
-            <label>
-              Your name
-              <input
-                name="name"
-                required
-                maxLength={100}
-                defaultValue={user?.display_name}
-              />
-            </label>
-            <label>
-              I’m here as
-              <select name="role" defaultValue={user?.role ?? "customer"}>
-                <option value="customer">
-                  Customer — discover local businesses
-                </option>
-                <option value="owner">Business owner — grow my business</option>
-              </select>
-            </label>
-          </>
-        )}
-        {!user &&
-          (mode === "phone" ? (
-            <>
-              <label>
-                Phone number
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+919876543210"
-                  required
-                  disabled={sent}
-                />
-              </label>
-              {sent && (
-                <label>
-                  Verification code
-                  <input
-                    name="otp"
-                    inputMode="numeric"
-                    required
-                    autoComplete="one-time-code"
-                  />
-                </label>
-              )}
-            </>
-          ) : (
-            <>
-              <label>
-                Email address
-                <input
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                />
-              </label>
-              <label>
-                Password
-                <input
-                  name="password"
-                  type="password"
-                  autoComplete={
-                    mode === "signup" ? "new-password" : "current-password"
-                  }
-                  required
-                  minLength={8}
-                />
-              </label>
-            </>
-          ))}
-        <Submit busy={busy}>
-          {user
-            ? "Save profile"
-            : mode === "signup"
-              ? "Create account"
-              : mode === "phone"
-                ? sent
-                  ? "Verify code"
-                  : "Send code"
-                : "Sign in"}
-        </Submit>
-        {!user && (
-          <button
-            className="outline"
-            type="button"
-            onClick={() =>
-              void run(async () => {
-                const { error } = await api.db.auth.signInWithOAuth({
-                  provider: "google",
-                  options: { redirectTo: `${location.origin}/auth/callback` },
-                });
-                if (error) throw error;
-              })
-            }
-          >
-            Continue with Google
-          </button>
-        )}
-      </form>
-    </section>
-  );
-}
 function Feed({
   saved,
   openBusiness,
@@ -469,11 +316,9 @@ function Feed({
   });
   return (
     <>
-      <p className="eyebrow">THE NEIGHBORHOOD EDIT</p>
-      <h1>{saved ? "Your saved finds." : "A little local inspiration."}</h1>
-      <p className="subtitle">
-        Fresh finds, familiar faces, and something new around every corner.
-      </p>
+      <p className="eyebrow">BUSINESS PARTNER</p>
+      <h1>{saved ? "Saved" : "Home"}</h1>
+      <p className="subtitle">Discover updates from businesses you love.</p>
       {!saved && (
         <div className="tabs">
           <button
