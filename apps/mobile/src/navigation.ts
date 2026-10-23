@@ -7,6 +7,7 @@ export type Route =
   | { name: "saved" }
   | { name: "notifications" }
   | { name: "edit-profile" }
+  | { name: "security" }
   | { name: "edit-business" }
   | { name: "products" }
   | { name: "analytics" };

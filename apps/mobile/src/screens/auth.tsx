@@ -13,7 +13,7 @@ import {
 import { Button, Field, Icon, colors } from "../ui";
 import { useApp, googleSignIn } from "../session";
 
-type Mode = "login" | "signup" | "magic" | "sent";
+type Mode = "login" | "signup" | "magic" | "reset" | "sent";
 const redirectTo = "businesspartner://auth/callback";
 export default function Auth() {
   const { api, run } = useApp();
@@ -22,6 +22,9 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [sentKind, setSentKind] = useState<"signup" | "magic" | "reset">(
+    "signup",
+  );
   const [visible, setVisible] = useState(false);
   function changeMode(next: Mode) {
     setMode(next);
@@ -30,7 +33,10 @@ export default function Auth() {
   }
   async function submit() {
     if (busy) return;
-    if (!email.trim() || (mode !== "magic" && password.length < 1)) {
+    if (
+      !email.trim() ||
+      (mode !== "magic" && mode !== "reset" && password.length < 1)
+    ) {
       setFeedback("Enter your email and password.");
       return;
     }
@@ -39,9 +45,15 @@ export default function Auth() {
     try {
       if (mode === "signup") {
         await api.register(email, password, redirectTo);
+        setSentKind("signup");
         setMode("sent");
       } else if (mode === "magic") {
         await api.magicLink(email, redirectTo);
+        setSentKind("magic");
+        setMode("sent");
+      } else if (mode === "reset") {
+        await api.resetPassword(email, redirectTo);
+        setSentKind("reset");
         setMode("sent");
       } else {
         await api.signIn(email, password);
@@ -59,9 +71,11 @@ export default function Auth() {
     setBusy(true);
     setFeedback("");
     try {
-      await api.resendVerification(email, redirectTo);
+      if (sentKind === "reset") await api.resetPassword(email, redirectTo);
+      else if (sentKind === "magic") await api.magicLink(email, redirectTo);
+      else await api.resendVerification(email, redirectTo);
       setFeedback(
-        "Another confirmation email was requested. Check your inbox and spam folder.",
+        "Another email was requested. Check your inbox and spam folder.",
       );
     } catch (e) {
       setFeedback(
@@ -85,7 +99,9 @@ export default function Auth() {
             <Text style={styles.brandMark}>bp.</Text>
           </View>
           <Text style={styles.brandName}>Business Partner</Text>
-          <Text style={styles.tagline}>Your neighborhood, connected.</Text>
+          <Text style={styles.tagline}>
+            Connect with the businesses around you.
+          </Text>
         </View>
         <View style={styles.card}>
           {mode === "sent" ? (
@@ -95,8 +111,8 @@ export default function Auth() {
               </View>
               <Text style={styles.title}>Check your email</Text>
               <Text style={styles.subtitle}>
-                We sent a secure link to {email}. Open it on this device to
-                verify your email and finish creating your profile.
+                If the address is eligible, a secure link will arrive at {email}
+                . Open it on this device to continue.
               </Text>
               <Button
                 title="Back to log in"
@@ -107,7 +123,7 @@ export default function Auth() {
                 onPress={() => void resend()}
                 disabled={busy}
               >
-                <Text style={styles.link}>Resend confirmation email</Text>
+                <Text style={styles.link}>Resend email</Text>
               </Pressable>
             </>
           ) : (
@@ -117,7 +133,9 @@ export default function Auth() {
                   ? "Create your account"
                   : mode === "magic"
                     ? "Get a sign-in link"
-                    : "Welcome back"}
+                    : mode === "reset"
+                      ? "Trouble logging in?"
+                      : "Log into Business Partner"}
               </Text>
               <Text style={styles.subtitle}>
                 {mode === "signup"
@@ -135,7 +153,7 @@ export default function Auth() {
                 autoCapitalize="none"
                 autoComplete="email"
               />
-              {mode !== "magic" && (
+              {mode !== "magic" && mode !== "reset" && (
                 <View>
                   <Field
                     label="Password"
@@ -174,10 +192,28 @@ export default function Auth() {
                     ? "Log in"
                     : mode === "signup"
                       ? "Send verification email"
-                      : "Email me a magic link"
+                      : mode === "reset"
+                        ? "Send reset link"
+                        : "Email me a magic link"
                 }
                 onPress={() => void submit()}
               />
+              {mode === "login" && (
+                <Pressable
+                  style={styles.textButton}
+                  onPress={() => changeMode("reset")}
+                >
+                  <Text style={styles.link}>Forgot password?</Text>
+                </Pressable>
+              )}
+              {mode === "reset" && (
+                <Pressable
+                  style={styles.textButton}
+                  onPress={() => changeMode("login")}
+                >
+                  <Text style={styles.link}>Back to log in</Text>
+                </Pressable>
+              )}
               {mode === "login" && (
                 <Pressable
                   style={styles.textButton}
@@ -351,3 +387,72 @@ const styles = StyleSheet.create({
   },
   footerText: { fontSize: 11, color: colors.muted },
 });
+
+export function ResetPassword({ done }: { done?: () => void }) {
+  const { api, finishRecovery } = useApp();
+  const [password, setPassword] = useState(""),
+    [confirm, setConfirm] = useState(""),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ padding: 24 }}
+      >
+        <Text style={styles.title}>Reset your password</Text>
+        <Field
+          label="New password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          autoCapitalize="none"
+          autoComplete="new-password"
+          maxLength={128}
+        />
+        <Field
+          label="Confirm password"
+          value={confirm}
+          onChangeText={setConfirm}
+          secureTextEntry
+          autoCapitalize="none"
+          autoComplete="new-password"
+          maxLength={128}
+        />
+        {!!error && (
+          <Text accessibilityRole="alert" style={styles.feedback}>
+            {error}
+          </Text>
+        )}
+        <Button
+          title="Update password"
+          busy={busy}
+          onPress={() => {
+            if (busy) return;
+            if (password !== confirm) {
+              setError("Passwords don’t match.");
+              return;
+            }
+            setBusy(true);
+            void api
+              .changePassword(password)
+              .then(() => {
+                Alert.alert("Password updated");
+                finishRecovery();
+                done?.();
+              })
+              .catch((e) =>
+                setError(
+                  e instanceof Error ? e.message : "Unable to update password.",
+                ),
+              )
+              .finally(() => setBusy(false));
+          }}
+        />
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}

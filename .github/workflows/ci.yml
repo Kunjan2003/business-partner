@@ -23,9 +23,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
+        id: supabase_cli
         with:
           version: latest
+          github-token: ${{ github.token }}
       - run: supabase start
       - run: supabase test db
-      - if: always()
+      - if: always() && steps.supabase_cli.outcome == 'success'
         run: supabase stop --no-backup

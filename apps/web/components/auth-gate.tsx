@@ -1,5 +1,5 @@
 "use client";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -14,12 +14,17 @@ import {
   Camera,
 } from "lucide-react";
 import { useApp } from "./provider";
+import { PasswordEditor } from "./account-profile";
 
-type Mode = "login" | "signup" | "link" | "sent";
+type Mode = "login" | "signup" | "link" | "reset" | "sent";
 const callbackUrl = () => `${window.location.origin}/auth/callback`;
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, loading, error, refreshProfile } = useApp();
+  const [recovery, setRecovery] = useState(false);
+  useEffect(() => {
+    setRecovery(new URLSearchParams(location.search).get("recovery") === "1");
+  }, []);
   if (loading)
     return (
       <main className="ig-loading">
@@ -28,6 +33,20 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       </main>
     );
   if (!user) return <Authentication error={error} />;
+  if (recovery)
+    return (
+      <main className="ig-onboard-wrap">
+        <section className="ig-onboard-card">
+          <h1>Reset your password</h1>
+          <PasswordEditor
+            done={() => {
+              history.replaceState(null, "", "/");
+              setRecovery(false);
+            }}
+          />
+        </section>
+      </main>
+    );
   if (!user.onboarding_completed)
     return <Onboarding onComplete={refreshProfile} />;
   return <>{children}</>;
@@ -42,6 +61,9 @@ function Authentication({ error: sessionError }: { error: string }) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [sentKind, setSentKind] = useState<"signup" | "link" | "reset">(
+    "signup",
+  );
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (busy) return;
@@ -51,9 +73,15 @@ function Authentication({ error: sessionError }: { error: string }) {
     try {
       if (mode === "signup") {
         await api.register(email, password, callbackUrl());
+        setSentKind("signup");
         setMode("sent");
       } else if (mode === "link") {
         await api.magicLink(email, callbackUrl());
+        setSentKind("link");
+        setMode("sent");
+      } else if (mode === "reset") {
+        await api.resetPassword(email, `${callbackUrl()}?recovery=1`);
+        setSentKind("reset");
         setMode("sent");
       } else {
         await api.signIn(email, password);
@@ -73,9 +101,12 @@ function Authentication({ error: sessionError }: { error: string }) {
     setError("");
     setMessage("");
     try {
-      await api.resendVerification(email, callbackUrl());
+      if (sentKind === "reset")
+        await api.resetPassword(email, `${callbackUrl()}?recovery=1`);
+      else if (sentKind === "link") await api.magicLink(email, callbackUrl());
+      else await api.resendVerification(email, callbackUrl());
       setMessage(
-        "A new verification email has been requested. Check your inbox and spam folder.",
+        "A new email has been requested. Check your inbox and spam folder.",
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to send email.");
@@ -100,7 +131,7 @@ function Authentication({ error: sessionError }: { error: string }) {
             <Sparkles size={17} /> REAL PEOPLE. LOCAL PLACES.
           </div>
           <h1>
-            See what’s happening <em>around you.</em>
+            See what’s happening with <em>local businesses.</em>
           </h1>
           <p>
             Discover neighborhood favorites, follow local stores, and find what
@@ -134,17 +165,20 @@ function Authentication({ error: sessionError }: { error: string }) {
               <>
                 <h2>Check your inbox</h2>
                 <p>
-                  We’ve sent a secure link to <strong>{email}</strong>.
+                  If the address is eligible, a secure link will arrive at{" "}
+                  <strong>{email}</strong>.
                 </p>
               </>
             ) : (
               <>
                 <h2>
                   {mode === "login"
-                    ? "Welcome back"
+                    ? "Log into Business Partner"
                     : mode === "signup"
                       ? "Join Business Partner"
-                      : "Log in with a link"}
+                      : mode === "reset"
+                        ? "Trouble logging in?"
+                        : "Log in with a link"}
                 </h2>
                 <p>
                   {mode === "signup"
@@ -162,8 +196,8 @@ function Authentication({ error: sessionError }: { error: string }) {
                 <Mail size={36} />
               </div>
               <p className="ig-helper">
-                Open the link on this device to verify your email. After
-                verification, you can finish setting up your profile.
+                Open the link on this device to continue securely. Check your
+                spam folder if it doesn’t arrive.
               </p>
               <button
                 className="ig-button"
@@ -177,7 +211,7 @@ function Authentication({ error: sessionError }: { error: string }) {
                 disabled={busy}
                 onClick={() => void resend()}
               >
-                Resend confirmation email
+                Resend email
               </button>
             </>
           ) : (
@@ -194,7 +228,7 @@ function Authentication({ error: sessionError }: { error: string }) {
                   required
                 />
               </label>
-              {mode !== "link" && (
+              {mode !== "link" && mode !== "reset" && (
                 <label>
                   Password
                   <div className="ig-password">
@@ -235,7 +269,9 @@ function Authentication({ error: sessionError }: { error: string }) {
                     ? "Log in"
                     : mode === "signup"
                       ? "Send verification email"
-                      : "Send magic link"}{" "}
+                      : mode === "reset"
+                        ? "Send reset link"
+                        : "Send magic link"}{" "}
                 <ArrowRight size={17} />
               </button>
             </form>
@@ -252,6 +288,22 @@ function Authentication({ error: sessionError }: { error: string }) {
             </p>
           )}
           {mode === "login" && (
+            <button
+              className="ig-text-button"
+              onClick={() => switchTo("reset")}
+            >
+              Forgot password?
+            </button>
+          )}
+          {mode === "reset" && (
+            <button
+              className="ig-text-button"
+              onClick={() => switchTo("login")}
+            >
+              Back to log in
+            </button>
+          )}
+          {mode === "login" && (
             <button className="ig-text-button" onClick={() => switchTo("link")}>
               Log in with an email link instead
             </button>
@@ -262,6 +314,32 @@ function Authentication({ error: sessionError }: { error: string }) {
               onClick={() => switchTo("login")}
             >
               Use my password
+            </button>
+          )}
+          {mode === "login" && (
+            <button
+              className="ig-oauth-button"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                setError("");
+                try {
+                  const { error } = await api.db.auth.signInWithOAuth({
+                    provider: "google",
+                    options: { redirectTo: callbackUrl() },
+                  });
+                  if (error) throw error;
+                } catch (e) {
+                  setError(
+                    e instanceof Error
+                      ? e.message
+                      : "Could not start Google sign-in.",
+                  );
+                  setBusy(false);
+                }
+              }}
+            >
+              Continue with Google
             </button>
           )}
           <div className="ig-switch">

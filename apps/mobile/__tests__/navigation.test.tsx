@@ -39,6 +39,9 @@ const mockApi: any = {
   products: jest.fn(),
   reviews: jest.fn(),
   following: jest.fn(),
+  followedCount: jest.fn(),
+  saveProfile: jest.fn(),
+  changePassword: jest.fn(),
 };
 jest.mock("../src/session", () => ({
   configured: true,
@@ -101,6 +104,7 @@ beforeEach(() => {
   mockApi.products.mockResolvedValue([]);
   mockApi.reviews.mockResolvedValue([]);
   mockApi.following.mockResolvedValue(false);
+  mockApi.followedCount.mockResolvedValue(3);
   mockContext = {
     api: mockApi,
     user: {
@@ -108,7 +112,12 @@ beforeEach(() => {
       display_name: "Kunjan",
       role: "customer",
       avatar_url: null,
+      username: "kunjan",
+      bio: "Business community",
+      website: "",
     },
+    recovery: false,
+    finishRecovery: jest.fn(),
     session: { user: { id: "customer" } },
     loading: false,
     profileError: null,
@@ -190,4 +199,58 @@ test("a backend profile failure keeps a signed-in session and offers retry", asy
   fireEvent.press(screen.getByText("Try again"));
   expect(mockContext.reloadProfile).toHaveBeenCalled();
   expect(screen.queryByText("Welcome back")).toBeNull();
+});
+
+test("profile editor saves username, bio and website through the shared API", async () => {
+  const screen = render(<App />);
+  fireEvent.press(screen.getByRole("tab", { name: "Profile" }));
+  fireEvent.press(await screen.findByText("Edit profile"));
+  fireEvent.changeText(screen.getByLabelText("Username"), "kunjan.herma");
+  fireEvent.changeText(
+    screen.getByLabelText("Bio"),
+    "Helping local businesses",
+  );
+  fireEvent.changeText(screen.getByLabelText("Website"), "https://example.com");
+  fireEvent.press(screen.getByText("Save changes"));
+  await waitFor(() =>
+    expect(mockApi.saveProfile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        username: "kunjan.herma",
+        bio: "Helping local businesses",
+        website: "https://example.com",
+      }),
+    ),
+  );
+});
+test("recovery session opens password form before the app and checks confirmation", async () => {
+  mockContext.recovery = true;
+  mockApi.changePassword.mockResolvedValue({});
+  const screen = render(<App />);
+  expect(screen.queryByRole("tab", { name: "Home" })).toBeNull();
+  fireEvent.changeText(
+    screen.getByLabelText("New password"),
+    "new-password-123",
+  );
+  fireEvent.changeText(
+    screen.getByLabelText("Confirm password"),
+    "different-password",
+  );
+  fireEvent.press(screen.getByText("Update password"));
+  expect(screen.getByText("Passwords don’t match.")).toBeTruthy();
+  expect(mockApi.changePassword).not.toHaveBeenCalled();
+  fireEvent.changeText(
+    screen.getByLabelText("Confirm password"),
+    "new-password-123",
+  );
+  fireEvent.press(screen.getByText("Update password"));
+  await waitFor(() => expect(mockContext.finishRecovery).toHaveBeenCalled());
+  expect(mockApi.changePassword).toHaveBeenCalledWith("new-password-123");
+});
+
+test("password recovery stays accessible when profile loading has failed", () => {
+  mockContext.recovery = true;
+  mockContext.profileError = new Error("Profile unavailable");
+  const screen = render(<App />);
+  expect(screen.getByLabelText("New password")).toBeTruthy();
+  expect(screen.queryByText("We couldn’t load your account")).toBeNull();
 });

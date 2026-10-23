@@ -79,3 +79,31 @@ export const categories = [
 export function directionsUrl(latitude: number, longitude: number) {
   return `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
 }
+
+export const profileDetailsSchema = z.object({
+  display_name: z.string().trim().min(2).max(100),
+  username: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(
+      /^[a-z0-9._]{3,30}$/,
+      "Use 3–30 letters, numbers, dots or underscores",
+    ),
+  bio: z.string().trim().max(160),
+  website: z
+    .string()
+    .trim()
+    .max(300)
+    .refine(
+      (value) =>
+        !value ||
+        (/^https?:\/\//i.test(value) &&
+          !/\s/.test(value) &&
+          URL.canParse(value)),
+      "Enter a full http or https website address",
+    ),
+  role: roleSchema,
+  avatar_url: z.string().url().or(z.literal("")).optional(),
+});
+export type ProfileDetailsInput = z.input<typeof profileDetailsSchema>;
